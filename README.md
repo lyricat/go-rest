@@ -36,3 +36,5 @@ Get the http.Handler from RESTService:
 
 	handler, err := rest.Init(new(RESTService))
 	http.ListenAndServe("127.0.0.1:8080", handler)
+
+Full document: http://godoc.org/github.com/googollee/go-rest
