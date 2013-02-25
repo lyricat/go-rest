@@ -23,6 +23,10 @@ type Service struct {
 	*innerService
 }
 
+func (s Service) Request() *http.Request {
+	return s.ctx.request
+}
+
 // Header returns the header map that will be sent.
 func (s Service) Response(code int) {
 	s.ctx.status = code
@@ -68,9 +72,10 @@ func initService(service reflect.Value, tag reflect.StructTag) error {
 }
 
 type context struct {
-	status int
-	header http.Header
-	error  error
+	request *http.Request
+	status  int
+	header  http.Header
+	error   error
 }
 
 type innerService struct {
@@ -88,11 +93,11 @@ func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var errorCode int
 	defer func() {
-		// r := recover()
-		// if r != nil {
-		// 	errorCode = http.StatusInternalServerError
-		// 	err = fmt.Errorf("panic: %v", r)
-		// }
+		r := recover()
+		if r != nil {
+			errorCode = http.StatusInternalServerError
+			err = fmt.Errorf("panic: %v", r)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), errorCode)
 		}
@@ -129,7 +134,7 @@ func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	val := reflect.ValueOf(s.instance)
 	inner := val.Field(0).Field(0).Interface().(*innerService)
-	inner.ctx = &context{http.StatusOK, w.Header(), nil}
+	inner.ctx = &context{r, http.StatusOK, w.Header(), nil}
 
 	f := val.Method(handler.funcIndex)
 	resp := f.Call(args)
@@ -145,6 +150,9 @@ func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s innerService) findProcessor(r *http.Request) (Processor, bool) {
 	for _, h := range s.processors {
+		if h.method != r.Method {
+			continue
+		}
 		if h.path.MatchString(r.URL.Path) {
 			return h, true
 		}

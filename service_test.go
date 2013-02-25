@@ -93,18 +93,20 @@ func (t FindProcessor) handler3(b string, c int) {}
 func TestFindHandler(t *testing.T) {
 	processor := reflect.TypeOf(FindProcessor{})
 	type Test struct {
+		method string
 		url    string
 		ok     bool
 		result string
 	}
 	var tests = []Test{
-		{"/path", true, "/path$"},
-		{"/path/abc", true, "/path/([^/]*?)$"},
-		{"/path/abc/123", true, "/path/([^/]*?)/([0-9]*)$"},
-		{"/path1", false, ""},
-		{"/path/abc/xyz", false, ""},
+		{"GET", "/path", true, "/path$"},
+		{"GET", "/path/abc", true, "/path/([^/]*?)$"},
+		{"GET", "/path/abc/123", true, "/path/([^/]*?)/([0-9]*)$"},
+		{"GET", "/path1", false, ""},
+		{"GET", "/path/abc/xyz", false, ""},
+		{"POST", "/path", false, ""},
 	}
-	processors := []reflect.StructTag{`path:"/path"`, `path:"/path/([^/]*?)"`, `path:"/path/([^/]*?)/([0-9]*)"`}
+	processors := []reflect.StructTag{`path:"/path" method:"GET"`, `path:"/path/([^/]*?)" method:"GET"`, `path:"/path/([^/]*?)/([0-9]*)" method:"GET"`}
 	funcs := []reflect.Method{mustGet(processor.MethodByName("handler1")), mustGet(processor.MethodByName("handler2")), mustGet(processor.MethodByName("handler3"))}
 
 	for i, test := range tests {
@@ -121,10 +123,13 @@ func TestFindHandler(t *testing.T) {
 			}
 			service.processors = append(service.processors, *processor)
 		}
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1%s", test.url), nil)
+		req, _ := http.NewRequest(test.method, fmt.Sprintf("http://127.0.0.1%s", test.url), nil)
 		processor, ok := service.innerService.findProcessor(req)
 		assert.Equal(t, ok, test.ok, fmt.Sprintf("test %d", i))
 		if !test.ok {
+			continue
+		} else if !ok {
+			t.Errorf("not find test %d", i)
 			continue
 		}
 		assert.Equal(t, processor.path.String(), test.result, fmt.Sprintf("test %d", i))

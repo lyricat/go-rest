@@ -11,9 +11,10 @@ import (
 type FullTest struct {
 	Service `root:"/test/" realm:"tester"`
 
-	Hello  Processor `method:"GET" path:"/hello/([a-zA-Z0-9]+)"`
-	Print  Processor `method:"POST" path:"/print/([0-9]+)"`
-	Error_ Processor `method:"GET" path:"/error" func:"ErrorFunc"`
+	Hello   Processor `method:"GET" path:"/hello/([a-zA-Z0-9]+)"`
+	Print   Processor `method:"POST" path:"/print/([0-9]+)"`
+	Error_  Processor `method:"GET" path:"/error" func:"ErrorFunc"`
+	Request Processor `method:"GET" path:"/request"`
 }
 
 func (t FullTest) Hello_(guest string) string {
@@ -36,18 +37,18 @@ func (t FullTest) ErrorFunc() string {
 	return ""
 }
 
+func (t FullTest) Request_() string {
+	query := t.Service.Request().URL.Query()
+	header := t.Service.Request().Header
+	return query.Get("a") + header.Get("B")
+}
+
 func TestRestful(t *testing.T) {
 	test := new(FullTest)
 	handler, err := Init(test)
 	if err != nil {
 		t.Fatalf("can't init test: %s", err)
 	}
-	go func() {
-		err := http.ListenAndServe(":12345", handler)
-		if err != nil {
-			panic(err)
-		}
-	}()
 
 	{
 		r, err := http.NewRequest("GET", "http://127.0.0.1:12345/test/hello/restful", nil)
@@ -95,9 +96,24 @@ func TestRestful(t *testing.T) {
 		}
 		resp, status, _ := sendRequest(handler, r)
 		if status != http.StatusInternalServerError {
-			t.Errorf("call error status not redirect: %s", status)
+			t.Errorf("call error status not redirect: %d", status)
 		}
 		if resp != "error: no reason" {
+			t.Errorf("call error response error: [%s]", resp)
+		}
+	}
+
+	{
+		r, err := http.NewRequest("GET", "http://127.0.0.1:12345/test/request?a=123", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("B", "abc")
+		resp, status, _ := sendRequest(handler, r)
+		if status != http.StatusOK {
+			t.Errorf("call error status not ok: %d", status)
+		}
+		if resp != "\"123abc\"\n" {
 			t.Errorf("call error response error: [%s]", resp)
 		}
 	}
