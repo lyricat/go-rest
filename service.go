@@ -23,6 +23,7 @@ type Service struct {
 	*innerService
 }
 
+// Return the http request instance.
 func (s Service) Request() *http.Request {
 	return s.ctx.request
 }
