@@ -35,7 +35,7 @@ The default name of processor is the name of field postfix with "_", like Hello 
 
 Get the http.Handler from RESTService:
 
-	handler, err := rest.Init(new(RESTService))
+	handler, err := rest.New(new(RESTService))
 	http.ListenAndServe("127.0.0.1:8080", handler)
 */
 package rest
@@ -46,8 +46,8 @@ import (
 	"reflect"
 )
 
-// Init the service instance and convert to http.Handler
-func Init(i interface{}) (http.Handler, error) {
+// Create http.Handler from service instance
+func New(i interface{}) (http.Handler, error) {
 	v := reflect.ValueOf(i)
 	if v.Kind() != reflect.Struct && v.Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("%s's kind must struct or point to struct")

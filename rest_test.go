@@ -45,7 +45,7 @@ func (t FullTest) Request_() string {
 
 func TestRestful(t *testing.T) {
 	test := new(FullTest)
-	handler, err := Init(test)
+	handler, err := New(test)
 	if err != nil {
 		t.Fatalf("can't init test: %s", err)
 	}
@@ -145,7 +145,7 @@ func TestServiceError(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		_, err := Init(test)
+		_, err := New(test)
 		if err == nil {
 			t.Errorf("test %d should error", i)
 		}
@@ -223,6 +223,6 @@ func (s RESTService) GetConversation(id int) string {
 }
 
 func ExampleRest() {
-	handler, _ := Init(new(RESTService))
+	handler, _ := New(new(RESTService))
 	http.ListenAndServe("127.0.0.1:8080", handler)
 }
