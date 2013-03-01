@@ -65,9 +65,9 @@ func initService(service reflect.Value, tag reflect.StructTag) error {
 	}
 	service.Field(0).Set(reflect.ValueOf(&innerService{
 		root:           root,
-		realm:          parseRealm(tag),
 		defaultMime:    mime,
 		defaultCharset: charset,
+		tag:            tag,
 	}))
 	return nil
 }
@@ -81,9 +81,9 @@ type context struct {
 
 type innerService struct {
 	root           string
-	realm          []string
 	defaultCharset string
 	defaultMime    string
+	tag            reflect.StructTag
 
 	instance   interface{}
 	processors []Processor

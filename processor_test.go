@@ -50,13 +50,12 @@ func TestProcessorInit(t *testing.T) {
 		kinds        string
 		requestType  string
 		responseType string
-		realm        string
 	}
 
 	var tests = []Test{
-		{"/root", `method:"GET" path:"/hello/(.*?)/(.*?)/(.*?)"`, mustGet(processor.MethodByName("HandlerNoPost")), true, "GET", "/root/hello/(.*?)/(.*?)/(.*?)$", "[string int int]", "<nil>", "string", "[]"},
-		{"/", `method:"POST" path:"/hello/(.*?)/(.*?)"`, mustGet(processor.MethodByName("HandlerWithPost")), true, "POST", "/hello/(.*?)/(.*?)$", "[string int]", "rest.Post", "string", "[]"},
-		{"/", `method:"POST" path:"/hello/(.*?)"`, mustGet(processor.MethodByName("HandlerInvalid")), false, "", "", "", "", "", ""},
+		{"/root", `method:"GET" path:"/hello/(.*?)/(.*?)/(.*?)"`, mustGet(processor.MethodByName("HandlerNoPost")), true, "GET", "/root/hello/(.*?)/(.*?)/(.*?)$", "[string int int]", "<nil>", "string"},
+		{"/", `method:"POST" path:"/hello/(.*?)/(.*?)"`, mustGet(processor.MethodByName("HandlerWithPost")), true, "POST", "/hello/(.*?)/(.*?)$", "[string int]", "rest.Post", "string"},
+		{"/", `method:"POST" path:"/hello/(.*?)"`, mustGet(processor.MethodByName("HandlerInvalid")), false, "", "", "", "", ""},
 	}
 
 	for i, test := range tests {
@@ -73,7 +72,7 @@ func TestProcessorInit(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("%s", processor.pathArgKinds), test.kinds, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", processor.requestType), test.requestType, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", processor.responseType), test.responseType, fmt.Sprintf("test %d", i))
-		assert.Equal(t, fmt.Sprintf("%v", processor.realm), test.realm, fmt.Sprintf("test %d", i))
+		assert.Equal(t, processor.tag, test.tag, fmt.Sprintf("test %d", i))
 		assert.Equal(t, processor.funcIndex, test.f.Index, fmt.Sprintf("test %d", i))
 	}
 }

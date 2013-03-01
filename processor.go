@@ -14,7 +14,7 @@ type innerProcessor struct {
 	pathArgKinds []reflect.Kind
 	requestType  reflect.Type
 	responseType reflect.Type
-	realm        []string
+	tag          reflect.StructTag
 	funcIndex    int
 }
 
@@ -91,7 +91,7 @@ func initProcessor(root string, processor reflect.Value, tag reflect.StructTag, 
 		pathArgKinds: kinds,
 		requestType:  requestType,
 		responseType: retType,
-		realm:        parseRealm(tag),
+		tag:          tag,
 		funcIndex:    f.Index,
 	}))
 

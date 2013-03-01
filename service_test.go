@@ -35,9 +35,9 @@ func TestService(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, service.root, test.root, fmt.Sprintf("test %d", i))
-		assert.Equal(t, fmt.Sprintf("%s", service.realm), test.realm, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, test.mime, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultCharset, test.charset, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.tag, test.tag, fmt.Sprintf("test %d", i))
 	}
 }
 
