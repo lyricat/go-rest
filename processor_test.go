@@ -68,11 +68,12 @@ func TestProcessorInit(t *testing.T) {
 			t.Error(err)
 		}
 		assert.Equal(t, processor.method, test.method, fmt.Sprintf("test %d", i))
+		assert.Equal(t, processor.Method, test.method, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%s", processor.path), test.path, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%s", processor.pathArgKinds), test.kinds, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", processor.requestType), test.requestType, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", processor.responseType), test.responseType, fmt.Sprintf("test %d", i))
-		assert.Equal(t, processor.tag, test.tag, fmt.Sprintf("test %d", i))
+		assert.Equal(t, processor.Tag, test.tag, fmt.Sprintf("test %d", i))
 		assert.Equal(t, processor.funcIndex, test.f.Index, fmt.Sprintf("test %d", i))
 	}
 }

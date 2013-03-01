@@ -31,6 +31,9 @@ type Service struct {
 
 	// Set the service default charset, it will over right charset in tag.
 	DefaultCharset string
+
+	// Plugin can access service.Tag to get the tag informations.
+	Tag reflect.StructTag
 }
 
 // Return the http request instance.
@@ -85,11 +88,14 @@ func initService(service reflect.Value, tag reflect.StructTag) error {
 		root = "/"
 	}
 
+	service.FieldByName("DefaultMime").SetString(mime)
+	service.FieldByName("DefaultCharset").SetString(charset)
+	service.FieldByName("Root").SetString(root)
+	service.FieldByName("Tag").Set(reflect.ValueOf(tag))
 	service.Field(0).Set(reflect.ValueOf(&innerService{
 		root:           root,
 		defaultMime:    mime,
 		defaultCharset: charset,
-		tag:            tag,
 	}))
 	return nil
 }
@@ -105,7 +111,6 @@ type innerService struct {
 	root           string
 	defaultCharset string
 	defaultMime    string
-	tag            reflect.StructTag
 
 	instance   interface{}
 	processors []Processor

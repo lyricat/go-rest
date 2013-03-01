@@ -35,9 +35,12 @@ func TestService(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, service.root, test.root, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Root, test.root, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, test.mime, fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.defaultCharset, test.charset, fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.tag, test.tag, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.DefaultCharset, test.charset, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.defaultMime, test.mime, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.DefaultCharset, test.charset, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Tag, test.tag, fmt.Sprintf("test %d", i))
 	}
 
 	for i, test := range tests {
@@ -52,9 +55,12 @@ func TestService(t *testing.T) {
 			continue
 		}
 		assert.Equal(t, service.root, "/abcde", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Root, "/abcde", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, "text/plain", fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.defaultCharset, "abc", fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.tag, test.tag, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.DefaultCharset, "abc", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.defaultMime, "text/plain", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.DefaultCharset, "abc", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Tag, test.tag, fmt.Sprintf("test %d", i))
 	}
 }
 

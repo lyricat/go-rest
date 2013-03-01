@@ -14,7 +14,6 @@ type innerProcessor struct {
 	pathArgKinds []reflect.Kind
 	requestType  reflect.Type
 	responseType reflect.Type
-	tag          reflect.StructTag
 	funcIndex    int
 }
 
@@ -34,6 +33,12 @@ To be implement:
 */
 type Processor struct {
 	*innerProcessor
+
+	// Plugin can access processor.Method to get the method informations.
+	Method string
+
+	// Plugin can access processor.Tag to get the tag informations.
+	Tag reflect.StructTag
 }
 
 // Generate the path of http request to processor. The args will fill in by url order.
@@ -72,7 +77,16 @@ func (p Processor) getArgs(path string) ([]reflect.Value, error) {
 }
 
 func initProcessor(root string, processor reflect.Value, tag reflect.StructTag, f reflect.Method) error {
-	path, err := parsePath(root, tag.Get("path"))
+	method := tag.Get("method")
+	if method == "" {
+		return fmt.Errorf("tag must contain method")
+	}
+	p := tag.Get("path")
+	if p == "" {
+		return fmt.Errorf("tag must contain path")
+	}
+
+	path, err := parsePath(root, p)
 	if err != nil {
 		return err
 	}
@@ -85,13 +99,14 @@ func initProcessor(root string, processor reflect.Value, tag reflect.StructTag, 
 		return err
 	}
 
+	processor.FieldByName("Method").SetString(method)
+	processor.FieldByName("Tag").Set(reflect.ValueOf(tag))
 	processor.Field(0).Set(reflect.ValueOf(&innerProcessor{
-		method:       tag.Get("method"),
+		method:       method,
 		path:         path,
 		pathArgKinds: kinds,
 		requestType:  requestType,
 		responseType: retType,
-		tag:          tag,
 		funcIndex:    f.Index,
 	}))
 
