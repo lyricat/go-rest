@@ -14,13 +14,23 @@ Valid tag:
 
  - root: The root path of http request. All processor's path will prefix with root path.
 
+The priority of value is: value in Service, value in tag, default.
+
 To be implement:
  - mime: Define the default mime of all processor in this service.
  - charset: Define the default charset of all processor in this service.
- - scope: Define required scope when process.
 */
 type Service struct {
 	*innerService
+
+	// Set the service root path, it will over right root in tag.
+	Root string
+
+	// Set the service default mime, it will over right mime in tag.
+	DefaultMime string
+
+	// Set the service default charset, it will over right charset in tag.
+	DefaultCharset string
 }
 
 // Return the http request instance.
@@ -51,18 +61,30 @@ func (s Service) RedirectTo(path string) {
 }
 
 func initService(service reflect.Value, tag reflect.StructTag) error {
-	mime := tag.Get("mime")
+	mime := service.FieldByName("DefaultMime").Interface().(string)
+	if mime == "" {
+		mime = tag.Get("mime")
+	}
 	if mime == "" {
 		mime = "application/json"
 	}
-	charset := tag.Get("charset")
+
+	charset := service.FieldByName("DefaultCharset").Interface().(string)
+	if charset == "" {
+		charset = tag.Get("charset")
+	}
 	if charset == "" {
 		charset = "utf-8"
 	}
-	root := tag.Get("root")
+
+	root := service.FieldByName("Root").Interface().(string)
+	if root == "" {
+		root = tag.Get("root")
+	}
 	if root == "" {
 		root = "/"
 	}
+
 	service.Field(0).Set(reflect.ValueOf(&innerService{
 		root:           root,
 		defaultMime:    mime,

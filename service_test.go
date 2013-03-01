@@ -39,6 +39,23 @@ func TestService(t *testing.T) {
 		assert.Equal(t, service.defaultCharset, test.charset, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.tag, test.tag, fmt.Sprintf("test %d", i))
 	}
+
+	for i, test := range tests {
+		service := new(Service)
+		service.Root = "/abcde"
+		service.DefaultMime = "text/plain"
+		service.DefaultCharset = "abc"
+		err := initService(reflect.ValueOf(service).Elem(), test.tag)
+		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d", i))
+		if !test.ok {
+			t.Error(err)
+			continue
+		}
+		assert.Equal(t, service.root, "/abcde", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.defaultMime, "text/plain", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.defaultCharset, "abc", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.tag, test.tag, fmt.Sprintf("test %d", i))
+	}
 }
 
 func TestGetContentType(t *testing.T) {
