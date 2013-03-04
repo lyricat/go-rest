@@ -86,13 +86,13 @@ func New(i interface{}) (http.Handler, error) {
 		}
 		f, ok := t.MethodByName(funcName)
 		if !ok {
-			return nil, fmt.Errorf("%s can't find function with name %s", t.Name(), funcName)
+			return nil, fmt.Errorf("%s can't find method with name %s", t.Name(), funcName)
 		}
 
 		handler := v.Field(i)
 		err := initProcessor(root, handler, handlerType.Tag, f)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s %s", handlerType.Name, err)
 		}
 
 		processors = append(processors, handler.Interface().(Processor))
