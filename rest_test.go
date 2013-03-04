@@ -130,6 +130,7 @@ func TestRestful(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		r.Header.Set("Content-Type", "application/xml; charset=gbk")
 		resp, status, _ := sendRequest(handler, r)
 		if status != http.StatusOK {
 			t.Errorf("call error status not ok: %d", status)

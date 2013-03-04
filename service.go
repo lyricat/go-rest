@@ -150,6 +150,10 @@ func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mime, _ := s.getContentTypeFromRequset(r)
 	marshaller, ok := getMarshaller(mime)
 	if !ok {
+		mime = s.defaultMime
+		marshaller, ok = getMarshaller(mime)
+	}
+	if !ok {
 		errorCode, err = http.StatusBadRequest, fmt.Errorf("can't find %s marshaller", mime)
 		return
 	}
