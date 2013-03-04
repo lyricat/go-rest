@@ -12,7 +12,7 @@ Define the service.
 
 Valid tag:
 
- - root: The root path of http request. All processor's path will prefix with root path.
+ - prefix: The prefix path of http request. All processor's path will prefix with prefix path.
 
 The priority of value is: value in Service, value in tag, default.
 
@@ -23,8 +23,8 @@ To be implement:
 type Service struct {
 	*innerService
 
-	// Set the service root path, it will over right root in tag.
-	Root string
+	// Set the service prefix path, it will over right prefix in tag.
+	Prefix string
 
 	// Set the service default mime, it will over right mime in tag.
 	DefaultMime string
@@ -80,20 +80,26 @@ func initService(service reflect.Value, tag reflect.StructTag) error {
 		charset = "utf-8"
 	}
 
-	root := service.FieldByName("Root").Interface().(string)
-	if root == "" {
-		root = tag.Get("root")
+	prefix := service.FieldByName("Prefix").Interface().(string)
+	if prefix == "" {
+		prefix = tag.Get("prefix")
 	}
-	if root == "" {
-		root = "/"
+	if prefix == "" {
+		prefix = "/"
+	}
+	if prefix[0] != '/' {
+		prefix = "/" + prefix
+	}
+	if l := len(prefix); l > 2 && prefix[l-1] == '/' {
+		prefix = prefix[:l-1]
 	}
 
 	service.FieldByName("DefaultMime").SetString(mime)
 	service.FieldByName("DefaultCharset").SetString(charset)
-	service.FieldByName("Root").SetString(root)
+	service.FieldByName("Prefix").SetString(prefix)
 	service.FieldByName("Tag").Set(reflect.ValueOf(tag))
 	service.Field(0).Set(reflect.ValueOf(&innerService{
-		root:           root,
+		prefix:         prefix,
 		defaultMime:    mime,
 		defaultCharset: charset,
 	}))
@@ -108,13 +114,17 @@ type context struct {
 }
 
 type innerService struct {
-	root           string
+	prefix         string
 	defaultCharset string
 	defaultMime    string
 
 	instance   interface{}
 	processors []Processor
 	ctx        *context
+}
+
+func (s innerService) Prefix() string {
+	return s.prefix
 }
 
 func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +180,7 @@ func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(inner.ctx.status)
 	if 200 <= inner.ctx.status && inner.ctx.status <= 399 && len(resp) > 0 {
 		marshaller.Marshal(w, resp[0].Interface())
-	} else {
+	} else if inner.ctx.error != nil {
 		w.Write([]byte(inner.ctx.error.Error()))
 	}
 

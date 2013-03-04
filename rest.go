@@ -4,7 +4,7 @@ Package rest is a RESTful web-service framework. It make struct method to http.H
 Define a service struct like this:
 
 	type RESTService struct {
-		Service `root:"/root"`
+		Service `prefix:"/prefix"`
 
 		Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
 		PostConv Processor `path:"/conversation" func:"PostConversation" method:"POST"`
@@ -46,8 +46,16 @@ import (
 	"reflect"
 )
 
+// Handler converted from service, which can handle http request
+type Handler interface {
+	http.Handler
+
+	// Prefix return the prefix path of service
+	Prefix() string
+}
+
 // Create http.Handler from service instance
-func New(i interface{}) (http.Handler, error) {
+func New(i interface{}) (Handler, error) {
 	v := reflect.ValueOf(i)
 	if v.Kind() != reflect.Struct && v.Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("%s's kind must struct or point to struct")
@@ -71,7 +79,7 @@ func New(i interface{}) (http.Handler, error) {
 		return nil, err
 	}
 	inner := service.Field(0).Interface().(*innerService)
-	root := inner.root
+	prefix := inner.prefix
 
 	var processors []Processor
 	for i, n := 0, v.NumField(); i < n; i++ {
@@ -90,7 +98,7 @@ func New(i interface{}) (http.Handler, error) {
 		}
 
 		handler := v.Field(i)
-		err := initProcessor(root, handler, handlerType.Tag, f)
+		err := initProcessor(prefix, handler, handlerType.Tag, f)
 		if err != nil {
 			return nil, fmt.Errorf("%s %s", handlerType.Name, err)
 		}

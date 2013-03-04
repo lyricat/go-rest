@@ -13,16 +13,16 @@ func TestService(t *testing.T) {
 		tag reflect.StructTag
 
 		ok      bool
-		root    string
+		prefix  string
 		realm   string
 		mime    string
 		charset string
 	}
 	var tests = []Test{
 		{``, true, "/", "[]", "application/json", "utf-8"},
-		{`root:"/root" realm:"abc,xyz" mime:"application/xml" charset:"gbk"`, true, "/root", "[abc xyz]", "application/xml", "gbk"},
-		{`root:"/root" realm:"abc,xyz" charset:"gbk"`, true, "/root", "[abc xyz]", "application/json", "gbk"},
-		{`root:"/root" realm:"abc,xyz" mime:"application/xml"`, true, "/root", "[abc xyz]", "application/xml", "utf-8"},
+		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml" charset:"gbk"`, true, "/prefix", "[abc xyz]", "application/xml", "gbk"},
+		{`prefix:"/prefix" realm:"abc,xyz" charset:"gbk"`, true, "/prefix", "[abc xyz]", "application/json", "gbk"},
+		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml"`, true, "/prefix", "[abc xyz]", "application/xml", "utf-8"},
 		{`realm:"abc,xyz" mime:"application/xml"`, true, "/", "[abc xyz]", "application/xml", "utf-8"},
 	}
 
@@ -34,8 +34,8 @@ func TestService(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		assert.Equal(t, service.root, test.root, fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.Root, test.root, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.prefix, test.prefix, fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Prefix, test.prefix, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, test.mime, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultCharset, test.charset, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, test.mime, fmt.Sprintf("test %d", i))
@@ -45,7 +45,7 @@ func TestService(t *testing.T) {
 
 	for i, test := range tests {
 		service := new(Service)
-		service.Root = "/abcde"
+		service.Prefix = "/abcde"
 		service.DefaultMime = "text/plain"
 		service.DefaultCharset = "abc"
 		err := initService(reflect.ValueOf(service).Elem(), test.tag)
@@ -54,8 +54,8 @@ func TestService(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		assert.Equal(t, service.root, "/abcde", fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.Root, "/abcde", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.prefix, "/abcde", fmt.Sprintf("test %d", i))
+		assert.Equal(t, service.Prefix, "/abcde", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, "text/plain", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultCharset, "abc", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.defaultMime, "text/plain", fmt.Sprintf("test %d", i))

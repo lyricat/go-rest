@@ -9,12 +9,13 @@ import (
 )
 
 type FullTest struct {
-	Service `root:"/test/" realm:"tester"`
+	Service `prefix:"/test/" realm:"tester"`
 
-	Hello   Processor `method:"GET" path:"/hello/([a-zA-Z0-9]+)"`
-	Print   Processor `method:"POST" path:"/print/([0-9]+)"`
-	Error_  Processor `method:"GET" path:"/error" func:"ErrorFunc"`
-	Request Processor `method:"GET" path:"/request"`
+	Hello    Processor `method:"GET" path:"/hello/([a-zA-Z0-9]+)"`
+	Print    Processor `method:"POST" path:"/print/([0-9]+)"`
+	Error_   Processor `method:"GET" path:"/error" func:"ErrorFunc"`
+	Request  Processor `method:"GET" path:"/request"`
+	NoReturn Processor `method:"POST" path:"/noreturn"`
 }
 
 func (t FullTest) Hello_(guest string) string {
@@ -43,11 +44,17 @@ func (t FullTest) Request_() string {
 	return query.Get("a") + header.Get("B")
 }
 
+func (t FullTest) NoReturn_() {}
+
 func TestRestful(t *testing.T) {
 	test := new(FullTest)
 	handler, err := New(test)
 	if err != nil {
 		t.Fatalf("can't init test: %s", err)
+	}
+
+	if handler.Prefix() != "/test" {
+		t.Fatal("handler root invalid:", handler.Prefix())
 	}
 
 	{
@@ -114,6 +121,20 @@ func TestRestful(t *testing.T) {
 			t.Errorf("call error status not ok: %d", status)
 		}
 		if resp != "\"123abc\"\n" {
+			t.Errorf("call error response error: [%s]", resp)
+		}
+	}
+
+	{
+		r, err := http.NewRequest("POST", "http://127.0.0.1:12345/test/noreturn", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, status, _ := sendRequest(handler, r)
+		if status != http.StatusOK {
+			t.Errorf("call error status not ok: %d", status)
+		}
+		if resp != "" {
 			t.Errorf("call error response error: [%s]", resp)
 		}
 	}
