@@ -3,8 +3,10 @@ package rest
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchrcom/testify/assert"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"testing"
 )
 
@@ -174,6 +176,82 @@ func TestServiceError(t *testing.T) {
 	}
 }
 
+func TestGetContentType(t *testing.T) {
+	type Test struct {
+		contentType string
+		mime        string
+		charset     string
+	}
+	var tests = []Test{
+		{"", "application/json", "utf-8"},
+		{"application/xml", "application/xml", "utf-8"},
+		{"application/xml; charset=gbk", "application/xml", "gbk"},
+		{"application/xml; other=abc; charset=gbk", "application/xml", "gbk"},
+		{"application/xml; other=abc", "application/xml", "utf-8"},
+	}
+
+	rest := &Rest{
+		prefix:         "/",
+		defaultMime:    "application/json",
+		defaultCharset: "utf-8",
+	}
+	for i, test := range tests {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1/", nil)
+		req.Header.Set("Content-Type", test.contentType)
+		mime, charset := rest.getContentTypeFromRequset(req)
+		assert.Equal(t, mime, test.mime, fmt.Sprintf("test %d", i))
+		assert.Equal(t, charset, test.charset, fmt.Sprintf("test %d", i))
+	}
+}
+
+type FindProcessor struct{}
+
+func (t FindProcessor) handler1()                {}
+func (t FindProcessor) handler2(a string)        {}
+func (t FindProcessor) handler3(b string, c int) {}
+
+func TestFindHandler(t *testing.T) {
+	processor := reflect.TypeOf(FindProcessor{})
+	type Test struct {
+		method string
+		url    string
+		ok     bool
+		result string
+	}
+	var tests = []Test{
+		{"GET", "/path", true, "/path$"},
+		{"GET", "/path/abc", true, "/path/([^/]*?)$"},
+		{"GET", "/path/abc/123", true, "/path/([^/]*?)/([0-9]*)$"},
+		{"GET", "/path1", false, ""},
+		{"GET", "/path/abc/xyz", false, ""},
+		{"POST", "/path", false, ""},
+	}
+	processors := []reflect.StructTag{`path:"/path" method:"GET"`, `path:"/path/([^/]*?)" method:"GET"`, `path:"/path/([^/]*?)/([0-9]*)" method:"GET"`}
+	funcs := []reflect.Method{mustGet(processor.MethodByName("handler1")), mustGet(processor.MethodByName("handler2")), mustGet(processor.MethodByName("handler3"))}
+
+	rest := new(Rest)
+	for i, p := range processors {
+		processor := new(Processor)
+		err := initProcessor("/", reflect.ValueOf(processor).Elem(), p, funcs[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		rest.processors = append(rest.processors, *processor)
+	}
+	for i, test := range tests {
+		req, _ := http.NewRequest(test.method, fmt.Sprintf("http://127.0.0.1%s", test.url), nil)
+		processor, ok := rest.findProcessor(req)
+		assert.Equal(t, ok, test.ok, fmt.Sprintf("test %d", i))
+		if !test.ok {
+			continue
+		} else if !ok {
+			t.Errorf("not find test %d", i)
+			continue
+		}
+		assert.Equal(t, processor.path.String(), test.result, fmt.Sprintf("test %d", i))
+	}
+}
+
 func respHelper(resp *http.Response, e error) (ret string, code int, header http.Header, err error) {
 	if e != nil {
 		err = e
@@ -223,7 +301,7 @@ func sendRequest(handler http.Handler, r *http.Request) (ret string, code int, h
 }
 
 type RESTService struct {
-	Service `root:"/root"`
+	Service `prefix:"/prefix"`
 
 	Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
 	PostConv Processor `path:"/conversation" func:"PostConversation" method:"POST"`

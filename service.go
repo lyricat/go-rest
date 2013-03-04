@@ -1,10 +1,8 @@
 package rest
 
 import (
-	"fmt"
 	"net/http"
 	"reflect"
-	"strings"
 )
 
 /*
@@ -63,7 +61,7 @@ func (s Service) RedirectTo(path string) {
 	s.Header().Set("Location", path)
 }
 
-func initService(service reflect.Value, tag reflect.StructTag) error {
+func initService(service reflect.Value, tag reflect.StructTag) (string, string, string, error) {
 	mime := service.FieldByName("DefaultMime").Interface().(string)
 	if mime == "" {
 		mime = tag.Get("mime")
@@ -94,139 +92,16 @@ func initService(service reflect.Value, tag reflect.StructTag) error {
 		prefix = prefix[:l-1]
 	}
 
-	service.FieldByName("DefaultMime").SetString(mime)
-	service.FieldByName("DefaultCharset").SetString(charset)
-	service.FieldByName("Prefix").SetString(prefix)
-	service.FieldByName("Tag").Set(reflect.ValueOf(tag))
-	service.Field(0).Set(reflect.ValueOf(&innerService{
-		prefix:         prefix,
-		defaultMime:    mime,
-		defaultCharset: charset,
+	service.Set(reflect.ValueOf(Service{
+		innerService:   new(innerService),
+		Prefix:         prefix,
+		DefaultMime:    mime,
+		DefaultCharset: charset,
+		Tag:            tag,
 	}))
-	return nil
-}
-
-type context struct {
-	request *http.Request
-	status  int
-	header  http.Header
-	error   error
+	return prefix, mime, charset, nil
 }
 
 type innerService struct {
-	prefix         string
-	defaultCharset string
-	defaultMime    string
-
-	instance   interface{}
-	processors []Processor
-	ctx        *context
-}
-
-func (s innerService) Prefix() string {
-	return s.prefix
-}
-
-func (s innerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var errorCode int
-	defer func() {
-		r := recover()
-		if r != nil {
-			errorCode = http.StatusInternalServerError
-			err = fmt.Errorf("panic: %v", r)
-		}
-		if err != nil {
-			http.Error(w, err.Error(), errorCode)
-		}
-	}()
-
-	handler, ok := s.findProcessor(r)
-	if !ok {
-		errorCode, err = http.StatusNotFound, fmt.Errorf("can't find handler to process %s", r.URL.Path)
-		return
-	}
-
-	mime, _ := s.getContentTypeFromRequset(r)
-	marshaller, ok := getMarshaller(mime)
-	if !ok {
-		mime = s.defaultMime
-		marshaller, ok = getMarshaller(mime)
-	}
-	if !ok {
-		errorCode, err = http.StatusBadRequest, fmt.Errorf("can't find %s marshaller", mime)
-		return
-	}
-
-	args, argErr := handler.getArgs(r.URL.Path)
-	if err != nil {
-		errorCode, err = http.StatusNotFound, argErr
-		return
-	}
-
-	if handler.requestType != nil {
-		request := reflect.New(handler.requestType)
-		err = marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			errorCode, err = http.StatusBadRequest, fmt.Errorf("can't marshal request to type %s: %s", handler.requestType, err)
-			return
-		}
-		args = append(args, request.Elem())
-	}
-
-	val := reflect.ValueOf(s.instance)
-	inner := val.Field(0).Field(0).Interface().(*innerService)
-	inner.ctx = &context{r, http.StatusOK, w.Header(), nil}
-
-	f := val.Method(handler.funcIndex)
-	resp := f.Call(args)
-
-	w.WriteHeader(inner.ctx.status)
-	if 200 <= inner.ctx.status && inner.ctx.status <= 399 && len(resp) > 0 {
-		marshaller.Marshal(w, resp[0].Interface())
-	} else if inner.ctx.error != nil {
-		w.Write([]byte(inner.ctx.error.Error()))
-	}
-
-}
-
-func (s innerService) findProcessor(r *http.Request) (Processor, bool) {
-	for _, h := range s.processors {
-		if h.method != r.Method {
-			continue
-		}
-		if h.path.MatchString(r.URL.Path) {
-			return h, true
-		}
-	}
-	return Processor{}, false
-}
-
-func (s innerService) getContentTypeFromRequset(r *http.Request) (string, string) {
-	contentType := strings.Split(r.Header.Get("Content-Type"), ";")
-	mime, charset := "", ""
-	if len(contentType) > 0 {
-		mime = strings.Trim(contentType[0], " \t")
-	}
-	if len(contentType) > 1 {
-		for _, property := range contentType[1:] {
-			property = strings.Trim(property, " \t")
-			if len(property) > 8 && property[:8] == "charset=" {
-				charset = property[8:]
-				break
-			}
-		}
-	}
-	if mime == "" {
-		mime = s.defaultMime
-	}
-	if charset == "" {
-		charset = s.defaultCharset
-	}
-
-	return mime, charset
-}
-
-func parseRealm(tag reflect.StructTag) []string {
-	return strings.Split(tag.Get("realm"), ",")
+	ctx *context
 }
