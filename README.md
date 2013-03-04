@@ -19,7 +19,7 @@ Summary
 Define a service struct like this:
 
 	type RESTService struct {
-		Service `root:"/root"`
+		Service `prefix:"/root"`
 
 		Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
 		PostConv Processor `path:"/conversation" func:"PostConversation" method:"POST"`
@@ -40,13 +40,13 @@ Define a service struct like this:
 		return fmt.Sprintf("get post id %d", id)
 	}
 
-The field tag of RESTService configure the parameters of processor, like method, path, or function which 
+The field tag of RESTService configure the parameters of processor, like method, path, or function which
 will process the request.
 
 The path of processor can capture arguments, which will pass to process function by order in path. Arguments
-type can be string or int, or any type which kind is string or int. 
+type can be string or int, or any type which kind is string or int.
 
-The default name of processor is the name of field postfix with "_", like Hello processor correspond Hello_ method.
+The default name of processor is the name of field postfix with "\_", like Hello processor correspond Hello\_ method.
 
 Get the http.Handler from RESTService:
 
