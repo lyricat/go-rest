@@ -50,5 +50,5 @@ The default name of processor is the name of field postfix with "\_", like Hello
 
 Get the http.Handler from RESTService:
 
-	handler, err := rest.Init(new(RESTService))
+	handler, err := rest.New(new(RESTService))
 	http.ListenAndServe("127.0.0.1:8080", handler)
