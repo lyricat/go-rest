@@ -41,23 +41,23 @@ func (s Service) Request() *http.Request {
 
 // Header returns the header map that will be sent.
 func (s Service) Response(code int) {
-	s.ctx.status = code
+	s.ctx.response.Status = code
 }
 
 // Get the response header.
 func (s Service) Header() http.Header {
-	return s.ctx.header
+	return s.ctx.response.Header
 }
 
 // Error replies to the request with the specified error message and HTTP code.
 func (s Service) Error(code int, err error) {
-	s.ctx.status = code
+	s.ctx.response.Status = code
 	s.ctx.error = err
 }
 
 // Redirect to the specified path.
 func (s Service) RedirectTo(path string) {
-	s.ctx.status = http.StatusTemporaryRedirect
+	s.ctx.response.Status = http.StatusTemporaryRedirect
 	s.Header().Set("Location", path)
 }
 

@@ -55,10 +55,9 @@ import (
 )
 
 type context struct {
-	request *http.Request
-	status  int
-	header  http.Header
-	error   error
+	request  *http.Request
+	response Response
+	error    error
 }
 
 // Rest handle the http request and call to correspond the processor.
@@ -67,6 +66,7 @@ type Rest struct {
 	defaultCharset string
 	defaultMime    string
 
+	plugins    []Plugin
 	instance   reflect.Value
 	processors []Processor
 }
@@ -130,6 +130,11 @@ func New(i interface{}) (*Rest, error) {
 	}, nil
 }
 
+// Add a plugin.
+func (s *Rest) AddPlugin(plugin Plugin) {
+	s.plugins = append(s.plugins, plugin)
+}
+
 // Get the prefix of service.
 func (s Rest) Prefix() string {
 	return s.prefix
@@ -150,10 +155,24 @@ func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	service := s.instance.Field(0).Interface().(Service)
+	service.ctx = &context{r, Response{http.StatusOK, w.Header()}, nil}
+
 	handler, ok := s.findProcessor(r)
 	if !ok {
 		errorCode, err = http.StatusNotFound, fmt.Errorf("can't find handler to process %s", r.URL.Path)
 		return
+	}
+
+	for _, plugin := range s.plugins {
+		resp := plugin.PreProcessor(r, service, handler)
+		if resp != nil {
+			for k, v := range resp.Header {
+				w.Header()[k] = v
+			}
+			w.WriteHeader(resp.Status)
+			return
+		}
 	}
 
 	mime, _ := s.getContentTypeFromRequset(r)
@@ -183,17 +202,18 @@ func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		args = append(args, request.Elem())
 	}
 
-	inner := s.instance.Field(0).Field(0).Interface().(*innerService)
-	inner.ctx = &context{r, http.StatusOK, w.Header(), nil}
-
 	f := s.instance.Method(handler.funcIndex)
-	resp := f.Call(args)
+	ret := f.Call(args)
 
-	w.WriteHeader(inner.ctx.status)
-	if 200 <= inner.ctx.status && inner.ctx.status <= 399 && len(resp) > 0 {
-		marshaller.Marshal(w, resp[0].Interface())
-	} else if inner.ctx.error != nil {
-		w.Write([]byte(inner.ctx.error.Error()))
+	for _, plugin := range s.plugins {
+		plugin.Response(&service.ctx.response, service, handler)
+	}
+
+	w.WriteHeader(service.ctx.response.Status)
+	if 200 <= service.ctx.response.Status && service.ctx.response.Status <= 399 && len(ret) > 0 {
+		marshaller.Marshal(w, ret[0].Interface())
+	} else if service.ctx.error != nil {
+		w.Write([]byte(service.ctx.error.Error()))
 	}
 
 }
