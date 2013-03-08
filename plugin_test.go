@@ -8,8 +8,12 @@ import (
 type PreTest1 struct{}
 
 func (t PreTest1) PreProcessor(r *http.Request, s Service, p Processor) *Response {
+	header := make(http.Header)
+	header.Set("PreProcessor", "true")
 	return &Response{
 		Status: 404,
+		Header: header,
+		Body:   "blocked",
 	}
 }
 
@@ -52,12 +56,18 @@ func TestPlugin(t *testing.T) {
 		handler.AddPlugin(new(PreTest1))
 
 		req, _ := http.NewRequest("GET", "http://localhost/test", nil)
-		_, code, _ := sendRequest(handler, req)
+		ret, code, header := sendRequest(handler, req)
 		if err != nil {
 			t.Errorf("call failed: %s", err)
 		}
 		if code != 404 {
 			t.Errorf("PreTest1.PreProcessor run error, return code: %d", code)
+		}
+		if header.Get("PreProcessor") != "true" {
+			t.Errorf("PreTest1.PreProcessor run error, return header: %d", header)
+		}
+		if ret != "blocked" {
+			t.Errorf("PreTest1.PreProcessor run error, return body: %s", ret)
 		}
 	}
 

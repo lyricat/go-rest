@@ -11,6 +11,9 @@ type Response struct {
 
 	// Response header.
 	Header http.Header
+
+	// Response body
+	Body string
 }
 
 // Plugin is a set of function which will be called at special stage when handling a request.

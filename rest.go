@@ -156,7 +156,7 @@ func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	service := s.instance.Field(0).Interface().(Service)
-	service.ctx = &context{r, Response{http.StatusOK, w.Header()}, nil}
+	service.ctx = &context{r, Response{http.StatusOK, w.Header(), ""}, nil}
 
 	handler, ok := s.findProcessor(r)
 	if !ok {
@@ -171,6 +171,7 @@ func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.Header()[k] = v
 			}
 			w.WriteHeader(resp.Status)
+			w.Write([]byte(resp.Body))
 			return
 		}
 	}
