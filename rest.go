@@ -1,5 +1,5 @@
 /*
-Package rest is a RESTful web-service framework. It make struct method to http.Handler automatically.
+Package rest is a RESTful web-service framework. It make struct method to http.Hander automatically.
 
 Define a service struct like this:
 
@@ -51,24 +51,16 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"strings"
 )
 
-type context struct {
-	request  *http.Request
-	response Response
-	error    error
-}
-
-// Rest handle the http request and call to correspond the processor.
+// Rest handle the http request and call to correspond the handler(processor or streaming).
 type Rest struct {
 	prefix         string
 	defaultCharset string
 	defaultMime    string
 
-	plugins    []Plugin
-	instance   reflect.Value
-	processors []Processor
+	instance reflect.Value
+	handlers []*node
 }
 
 // Create Rest instance from service instance
@@ -96,43 +88,28 @@ func New(i interface{}) (*Rest, error) {
 		return nil, err
 	}
 
-	var processors []Processor
+	var handlers []*node
 	for i, n := 0, instance.NumField(); i < n; i++ {
-		handlerType := t.Field(i)
-		if handlerType.Type.Name() != "Processor" {
+		handler := instance.Field(i)
+		if _, ok := handler.Interface().(nodeInterface); !ok {
 			continue
 		}
+		handlerType := t.Field(i)
 
-		funcName := handlerType.Tag.Get("func")
-		if funcName == "" {
-			funcName = handlerType.Name + "_"
-		}
-		f, ok := t.MethodByName(funcName)
-		if !ok {
-			return nil, fmt.Errorf("%s can't find method with name %s", t.Name(), funcName)
-		}
-
-		handler := instance.Field(i)
-		err := initProcessor(prefix, handler, handlerType.Tag, f)
+		node, err := newNode(t, prefix, handler, handlerType)
 		if err != nil {
-			return nil, fmt.Errorf("%s %s", handlerType.Name, err)
+			return nil, err
 		}
-
-		processors = append(processors, handler.Interface().(Processor))
+		handlers = append(handlers, node)
 	}
 
 	return &Rest{
 		prefix:         prefix,
 		defaultMime:    mime,
 		defaultCharset: charset,
-		processors:     processors,
+		handlers:       handlers,
 		instance:       instance,
 	}, nil
-}
-
-// Add a plugin.
-func (s *Rest) AddPlugin(plugin Plugin) {
-	s.plugins = append(s.plugins, plugin)
 }
 
 // Get the prefix of service.
@@ -155,103 +132,48 @@ func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	service := s.instance.Field(0).Interface().(Service)
-	service.ctx = &context{r, Response{http.StatusOK, w.Header(), ""}, nil}
-
-	handler, ok := s.findProcessor(r)
-	if !ok {
-		errorCode, err = http.StatusNotFound, fmt.Errorf("can't find handler to process %s", r.URL.Path)
+	node := s.findNode(r)
+	if node == nil {
+		errorCode, err = http.StatusNotFound, fmt.Errorf("can't find node to process %s", r.URL.Path)
 		return
 	}
 
-	for _, plugin := range s.plugins {
-		resp := plugin.PreProcessor(r, service, handler)
-		if resp != nil {
-			for k, v := range resp.Header {
-				w.Header()[k] = v
-			}
-			w.WriteHeader(resp.Status)
-			w.Write([]byte(resp.Body))
-			return
-		}
-	}
-
-	mime, _ := s.getContentTypeFromRequset(r)
-	marshaller, ok := getMarshaller(mime)
-	if !ok {
-		mime = s.defaultMime
-		marshaller, ok = getMarshaller(mime)
-	}
-	if !ok {
-		errorCode, err = http.StatusBadRequest, fmt.Errorf("can't find %s marshaller", mime)
+	args, e := node.match(r.Method, r.URL.Path)
+	if e != nil {
+		errorCode, err = http.StatusNotFound, e
 		return
 	}
 
-	args, argErr := handler.getArgs(r.URL.Path)
+	ctx, e := newContent(w, r, s.defaultMime, s.defaultCharset)
 	if err != nil {
-		errorCode, err = http.StatusNotFound, argErr
+		errorCode, err = http.StatusBadRequest, e
 		return
 	}
 
-	if handler.requestType != nil {
-		request := reflect.New(handler.requestType)
-		err = marshaller.Unmarshal(r.Body, request.Interface())
+	if req := node.request; req != nil {
+		request := reflect.New(req)
+		err = ctx.marshaller.Unmarshal(r.Body, request.Interface())
 		if err != nil {
-			errorCode, err = http.StatusBadRequest, fmt.Errorf("can't marshal request to type %s: %s", handler.requestType, err)
+			errorCode, err = http.StatusBadRequest, fmt.Errorf("can't marshal request to type %s: %s", req, err)
 			return
 		}
 		args = append(args, request.Elem())
 	}
 
-	f := s.instance.Method(handler.funcIndex)
-	ret := f.Call(args)
+	service := s.instance.Field(0).Interface().(Service)
+	service.ctx = ctx
 
-	for _, plugin := range s.plugins {
-		plugin.Response(&service.ctx.response, service, handler)
-	}
-
-	w.WriteHeader(service.ctx.response.Status)
-	if 200 <= service.ctx.response.Status && service.ctx.response.Status <= 399 && len(ret) > 0 {
-		marshaller.Marshal(w, ret[0].Interface())
-	} else if service.ctx.error != nil {
-		w.Write([]byte(service.ctx.error.Error()))
-	}
-
+	node.handle(s.instance, service.ctx, args)
 }
 
-func (s Rest) findProcessor(r *http.Request) (Processor, bool) {
-	for _, h := range s.processors {
+func (s Rest) findNode(r *http.Request) *node {
+	for _, h := range s.handlers {
 		if h.method != r.Method {
 			continue
 		}
 		if h.path.MatchString(r.URL.Path) {
-			return h, true
+			return h
 		}
 	}
-	return Processor{}, false
-}
-
-func (s Rest) getContentTypeFromRequset(r *http.Request) (string, string) {
-	contentType := strings.Split(r.Header.Get("Content-Type"), ";")
-	mime, charset := "", ""
-	if len(contentType) > 0 {
-		mime = strings.Trim(contentType[0], " \t")
-	}
-	if len(contentType) > 1 {
-		for _, property := range contentType[1:] {
-			property = strings.Trim(property, " \t")
-			if len(property) > 8 && property[:8] == "charset=" {
-				charset = property[8:]
-				break
-			}
-		}
-	}
-	if mime == "" {
-		mime = s.defaultMime
-	}
-	if charset == "" {
-		charset = s.defaultCharset
-	}
-
-	return mime, charset
+	return nil
 }
