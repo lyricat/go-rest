@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -135,6 +136,7 @@ Content-Type: %s; charset=utf-8
 Connection: keep-alive
 
 `
+	response = strings.Replace(response, "\n", "\r\n", -1)
 	response = fmt.Sprintf(response, ctx.mime)
 
 	_, err = bufrw.Write([]byte(response))
