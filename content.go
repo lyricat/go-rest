@@ -7,6 +7,7 @@ import (
 )
 
 type context struct {
+	mime           string
 	marshaller     Marshaller
 	request        *http.Request
 	response       Response
@@ -33,6 +34,7 @@ func newContent(w http.ResponseWriter, r *http.Request, defaultMime, defaultChar
 	}
 
 	return &context{
+		mime:           mime,
 		marshaller:     marshaller,
 		request:        r,
 		response:       Response{http.StatusOK, w.Header(), ""},
