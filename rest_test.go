@@ -17,6 +17,8 @@ type FullTest struct {
 	Error_   Processor `method:"GET" path:"/error" func:"ErrorFunc"`
 	Request  Processor `method:"GET" path:"/request"`
 	NoReturn Processor `method:"POST" path:"/noreturn"`
+
+	a int
 }
 
 func (t FullTest) Hello_(guest string) string {

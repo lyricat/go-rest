@@ -90,11 +90,14 @@ func New(i interface{}) (*Rest, error) {
 
 	var handlers []*node
 	for i, n := 0, instance.NumField(); i < n; i++ {
+		handlerType := t.Field(i)
+		if capital := handlerType.Name[0]; !('A' <= capital && capital <= 'Z') {
+			continue
+		}
 		handler := instance.Field(i)
 		if _, ok := handler.Interface().(nodeInterface); !ok {
 			continue
 		}
-		handlerType := t.Field(i)
 
 		node, err := newNode(t, prefix, handler, handlerType)
 		if err != nil {
