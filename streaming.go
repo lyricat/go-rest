@@ -37,6 +37,7 @@ Valid tag:
  - func: Define the get-identity function, which signature like func() string.
  - mime: Define the default mime of request's and response's body. It overwrite the service one.
  - end: Define the end of one data when streaming working.
+ - timeout: Define the timeout to check connection.
 
 To be implement:
  - charset: Define the default charset of request's and response's body. It overwrite the service one.
