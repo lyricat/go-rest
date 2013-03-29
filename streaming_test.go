@@ -40,6 +40,9 @@ func TestStreamingService(t *testing.T) {
 			s.Connection.Feed("123", 2)
 			s.Connection.Feed("123", "abc")
 			c <- 1
+			c <- 1
+			s.Connection.Disconnect("123")
+			c <- 1
 		}()
 
 		resp1, err := http.Get("http://localhost:28888/test/connection?token=123")
@@ -83,6 +86,17 @@ func TestStreamingService(t *testing.T) {
 		}
 		if string(buf2[:n]) != expect2 {
 			t.Errorf("not expect: %s", string(buf2[:n]))
+		}
+
+		<-c
+		<-c
+		_, err = resp1.Body.Read(buf1)
+		if err == nil {
+			t.Errorf("resp1 should be closed")
+		}
+		_, err = resp2.Body.Read(buf2)
+		if err == nil {
+			t.Errorf("resp2 should be closed")
 		}
 	}
 

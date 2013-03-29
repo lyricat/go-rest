@@ -93,6 +93,15 @@ func (s Streaming) init(streaming reflect.Value, pathFormatter string, f reflect
 	return nil
 }
 
+func (s Streaming) Disconnect(identity string) {
+	s.locker.Lock()
+	defer s.locker.Unlock()
+
+	for _, c := range s.connections[identity] {
+		close(c)
+	}
+}
+
 func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.Value) {
 	f := instance.Method(s.funcIndex)
 	ret := f.Call(args)
@@ -119,7 +128,11 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 		s.locker.Lock()
 		defer s.locker.Unlock()
 		conn.Close()
-		close(c)
+		func() {
+			// c may have closed
+			defer func() { recover() }()
+			close(c)
+		}()
 		if conns, ok := s.connections[identity]; ok {
 			delete(conns, ctx.request.RemoteAddr)
 			if len(conns) == 0 {
@@ -128,7 +141,6 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 				s.connections[identity] = conns
 			}
 		}
-		fmt.Println(s.connections)
 	}()
 
 	response := `HTTP/1.1 200 OK
@@ -163,7 +175,6 @@ Connection: keep-alive
 	for {
 		select {
 		case data, ok := <-c:
-			conn.SetWriteDeadline(time.Now().Add(s.timeout))
 			if !ok {
 				return
 			}
@@ -171,6 +182,7 @@ Connection: keep-alive
 			if err != nil {
 				return
 			}
+			conn.SetWriteDeadline(time.Now().Add(s.timeout))
 			_, err = bufrw.Write([]byte(s.end))
 			if err != nil {
 				return
@@ -180,8 +192,8 @@ Connection: keep-alive
 				return
 			}
 		case <-time.After(s.timeout):
-			conn.SetReadDeadline(time.Now().Add(time.Second / 1000))
 			buf := make([]byte, 1)
+			conn.SetReadDeadline(time.Now().Add(time.Second / 1000))
 			_, err := conn.Read(buf)
 			if e, ok := err.(net.Error); err == nil || (ok && e.Timeout()) {
 				continue
