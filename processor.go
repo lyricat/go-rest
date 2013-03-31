@@ -7,9 +7,9 @@ import (
 )
 
 type innerProcessor struct {
-	pathFormatter string
-	responseType  reflect.Type
-	funcIndex     int
+	formatter    pathFormatter
+	responseType reflect.Type
+	funcIndex    int
 }
 
 /*
@@ -32,19 +32,19 @@ type Processor struct {
 
 // Generate the path of http request to processor. The args will fill in by url order.
 func (p Processor) Path(args ...interface{}) (string, error) {
-	return fmt.Sprintf(p.pathFormatter, args...), nil
+	return p.formatter.path(args...), nil
 }
 
-func (p Processor) init(processor reflect.Value, pathFormatter string, f reflect.Method, tag reflect.StructTag) error {
+func (p Processor) init(processor reflect.Value, formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
 	retType, err := parseResponseType(f.Type)
 	if err != nil {
 		return err
 	}
 
 	processor.Field(0).Set(reflect.ValueOf(&innerProcessor{
-		pathFormatter: pathFormatter,
-		responseType:  retType,
-		funcIndex:     f.Index,
+		formatter:    pathFormatter(formatter),
+		responseType: retType,
+		funcIndex:    f.Index,
 	}))
 
 	return nil

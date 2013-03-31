@@ -19,10 +19,10 @@ type connection struct {
 }
 
 type innerStreaming struct {
-	pathFormatter string
-	funcIndex     int
-	end           string
-	timeout       time.Duration
+	formatter pathFormatter
+	funcIndex int
+	end       string
+	timeout   time.Duration
 
 	locker      sync.RWMutex
 	connections map[string]map[string]chan interface{}
@@ -64,10 +64,20 @@ func (s Streaming) Feed(identity string, data interface{}) {
 
 // Generate the path of http request to processor. The args will fill in by url order.
 func (s Streaming) Path(args ...interface{}) (string, error) {
-	return fmt.Sprintf(s.pathFormatter, args...), nil
+	return s.formatter.path(args...), nil
 }
 
-func (s Streaming) init(streaming reflect.Value, pathFormatter string, f reflect.Method, tag reflect.StructTag) error {
+// Dissconnect all connection with identity.
+func (s Streaming) Disconnect(identity string) {
+	s.locker.Lock()
+	defer s.locker.Unlock()
+
+	for _, c := range s.connections[identity] {
+		close(c)
+	}
+}
+
+func (s Streaming) init(streaming reflect.Value, formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
 	ft := f.Type
 	if ft.NumOut() != 1 || ft.Out(0).Kind() != reflect.String {
 		return fmt.Errorf("streaming(%s) must return (string, error)", f.Name)
@@ -83,23 +93,14 @@ func (s Streaming) init(streaming reflect.Value, pathFormatter string, f reflect
 	}
 
 	streaming.Field(0).Set(reflect.ValueOf(&innerStreaming{
-		pathFormatter: pathFormatter,
-		funcIndex:     f.Index,
-		end:           tag.Get("end"),
-		timeout:       time.Duration(timeout) * time.Second,
-		connections:   make(map[string]map[string]chan interface{}),
+		formatter:   pathFormatter(formatter),
+		funcIndex:   f.Index,
+		end:         tag.Get("end"),
+		timeout:     time.Duration(timeout) * time.Second,
+		connections: make(map[string]map[string]chan interface{}),
 	}))
 
 	return nil
-}
-
-func (s Streaming) Disconnect(identity string) {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	for _, c := range s.connections[identity] {
-		close(c)
-	}
 }
 
 func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.Value) {

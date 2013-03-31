@@ -7,8 +7,14 @@ import (
 	"strconv"
 )
 
+type pathFormatter string
+
+func (f pathFormatter) path(args ...interface{}) string {
+	return fmt.Sprintf(string(f), args...)
+}
+
 type nodeInterface interface {
-	init(node reflect.Value, pathFormatter string, f reflect.Method, tag reflect.StructTag) error
+	init(node reflect.Value, formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error
 	handle(instance reflect.Value, ctx *context, args []reflect.Value)
 }
 
@@ -50,9 +56,9 @@ func newNode(t reflect.Type, prefix string, node_ reflect.Value, nodeType reflec
 		return nil, err
 	}
 
-	pathStr = parsePathFormatter(path, kinds)
+	formatter := parsePathFormatter(path, kinds)
 
-	err = node_.Interface().(nodeInterface).init(node_, pathStr, f, nodeType.Tag)
+	err = node_.Interface().(nodeInterface).init(node_, formatter, f, nodeType.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("%s %s", nodeType.Name, err)
 	}
@@ -140,7 +146,7 @@ func parseRequestType(path *regexp.Regexp, f reflect.Type) (kinds []reflect.Kind
 	return
 }
 
-func parsePathFormatter(path *regexp.Regexp, kinds []reflect.Kind) string {
+func parsePathFormatter(path *regexp.Regexp, kinds []reflect.Kind) pathFormatter {
 	ret := path.String()
 	if ret[0] == '^' {
 		ret = ret[1:]
@@ -163,5 +169,5 @@ func parsePathFormatter(path *regexp.Regexp, kinds []reflect.Kind) string {
 		}
 		ret += endPart
 	}
-	return ret
+	return pathFormatter(ret)
 }
