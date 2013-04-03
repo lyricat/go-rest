@@ -39,26 +39,26 @@ func (s Service) Request() *http.Request {
 	return s.ctx.request
 }
 
-// Header returns the header map that will be sent.
-func (s Service) Response(code int) {
-	s.ctx.response.Status = code
+// Write response code and header. Same as http.ResponseWriter.WriteHeader(int)
+func (s Service) WriteHeader(code int) {
+	s.ctx.responseWriter.WriteHeader(code)
 }
 
 // Get the response header.
 func (s Service) Header() http.Header {
-	return s.ctx.response.Header
+	return s.ctx.responseWriter.Header()
 }
 
 // Error replies to the request with the specified error message and HTTP code.
 func (s Service) Error(code int, err error) {
-	s.ctx.response.Status = code
-	s.ctx.error = err
+	http.Error(s.ctx.responseWriter, err.Error(), code)
+	s.ctx.isError = true
 }
 
 // Redirect to the specified path.
 func (s Service) RedirectTo(path string) {
-	s.ctx.response.Status = http.StatusTemporaryRedirect
 	s.Header().Set("Location", path)
+	s.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func initService(service reflect.Value, tag reflect.StructTag) (string, string, string, error) {

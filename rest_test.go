@@ -32,7 +32,7 @@ func (t FullTest) Print_(id int, post string) string {
 	t.Header().Set("Type", "abcd")
 	path, _ := t.Hello.Path("guest")
 	t.Header().Set("Location", path)
-	t.Response(http.StatusCreated)
+	t.WriteHeader(http.StatusCreated)
 	return ret
 }
 
@@ -108,7 +108,7 @@ func TestRestful(t *testing.T) {
 		if status != http.StatusInternalServerError {
 			t.Errorf("call error status not redirect: %d", status)
 		}
-		if resp != "error: no reason" {
+		if resp != "error: no reason\n" {
 			t.Errorf("call error response error: [%s]", resp)
 		}
 	}

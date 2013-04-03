@@ -15,6 +15,7 @@ type TestStreaming struct {
 }
 
 func (t TestStreaming) Connection_() string {
+	t.Header().Set("Custom", "value")
 	return t.Request().URL.Query().Get("token")
 }
 
@@ -70,6 +71,9 @@ func TestStreamingService(t *testing.T) {
 
 		expect1 := "1\n2\n\"abc\"\n"
 		buf1 := make([]byte, len(expect1))
+		if resp1.Header.Get("Custom") != "value" {
+			t.Errorf("header failed: %+v", resp1.Header)
+		}
 		n, err := resp1.Body.Read(buf1)
 		if err != nil {
 			t.Fatal(err)

@@ -10,9 +10,8 @@ type context struct {
 	mime           string
 	marshaller     Marshaller
 	request        *http.Request
-	response       Response
 	responseWriter http.ResponseWriter
-	error          error
+	isError        bool
 }
 
 func newContent(w http.ResponseWriter, r *http.Request, defaultMime, defaultCharset string) (*context, error) {
@@ -37,9 +36,8 @@ func newContent(w http.ResponseWriter, r *http.Request, defaultMime, defaultChar
 		mime:           mime,
 		marshaller:     marshaller,
 		request:        r,
-		response:       Response{http.StatusOK, w.Header(), ""},
 		responseWriter: w,
-		error:          nil,
+		isError:        false,
 	}, nil
 }
 

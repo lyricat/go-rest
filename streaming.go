@@ -105,8 +105,7 @@ func (s Streaming) init(streaming reflect.Value, formatter pathFormatter, f refl
 func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.Value) {
 	f := instance.Method(s.funcIndex)
 	ret := f.Call(args)
-	if ctx.response.Status != http.StatusOK {
-		http.Error(ctx.responseWriter, ctx.error.Error(), ctx.response.Status)
+	if ctx.isError {
 		return
 	}
 
@@ -144,14 +143,14 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 	}()
 
 	response := "HTTP/1.1 200 OK\r\n"
-	ctx.response.Header.Set("Connection", "keep-alive")
-	ctx.response.Header.Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+	ctx.responseWriter.Header().Set("Connection", "keep-alive")
+	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
 
 	_, err = bufrw.Write([]byte(response))
 	if err != nil {
 		return
 	}
-	err = ctx.response.Header.Write(bufrw)
+	err = ctx.responseWriter.Header().Write(bufrw)
 	if err != nil {
 		return
 	}

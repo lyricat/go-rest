@@ -56,11 +56,8 @@ func (p Processor) handle(instance reflect.Value, ctx *context, args []reflect.V
 	f := instance.Method(p.funcIndex)
 	ret := f.Call(args)
 
-	w.WriteHeader(ctx.response.Status)
-	if 200 <= ctx.response.Status && ctx.response.Status <= 399 && len(ret) > 0 {
+	if !ctx.isError && len(ret) > 0 {
 		marshaller.Marshal(w, ret[0].Interface())
-	} else if ctx.error != nil {
-		w.Write([]byte(ctx.error.Error()))
 	}
 }
 
