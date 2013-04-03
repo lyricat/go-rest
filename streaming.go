@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -144,15 +143,19 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 		}
 	}()
 
-	response := `HTTP/1.1 200 OK
-Content-Type: %s; charset=utf-8
-Connection: keep-alive
-
-`
-	response = strings.Replace(response, "\n", "\r\n", -1)
-	response = fmt.Sprintf(response, ctx.mime)
+	response := "HTTP/1.1 200 OK\r\n"
+	ctx.response.Header.Set("Connection", "keep-alive")
+	ctx.response.Header.Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
 
 	_, err = bufrw.Write([]byte(response))
+	if err != nil {
+		return
+	}
+	err = ctx.response.Header.Write(bufrw)
+	if err != nil {
+		return
+	}
+	_, err = bufrw.Write([]byte("\r\n"))
 	if err != nil {
 		return
 	}
