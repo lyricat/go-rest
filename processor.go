@@ -57,6 +57,7 @@ func (p Processor) handle(instance reflect.Value, ctx *context, args []reflect.V
 	ret := f.Call(args)
 
 	if !ctx.isError && len(ret) > 0 {
+		ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
 		marshaller.Marshal(w, ret[0].Interface())
 	}
 }

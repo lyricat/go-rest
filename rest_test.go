@@ -88,8 +88,11 @@ func TestRestful(t *testing.T) {
 		if status != http.StatusCreated {
 			t.Errorf("call print/123 status not created: %d", status)
 		}
+		if header.Get("Content-Type") != "application/json; charset=utf-8" {
+			t.Errorf("call print/123 Content-Type error: %s", header.Get("Content-Type"))
+		}
 		if header.Get("Type") != "abcd" {
-			t.Errorf("call print/123 Type error: %s", header.Get("Typa"))
+			t.Errorf("call print/123 Type error: %s", header.Get("Type"))
 		}
 		if header.Get("Location") != "/test/hello/guest" {
 			t.Errorf("call print/123 location error: %s", header.Get("Location"))
