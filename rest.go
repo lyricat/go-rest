@@ -3,13 +3,19 @@ Package rest is a RESTful web-service framework. It make struct method to http.H
 
 Define a service struct like this:
 
+	type Conversation struct {
+		Id   int
+		To   string
+		Text string
+	}
+
 	type RESTService struct {
 		Service `prefix:"/prefix"`
 
 		Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
 		PostConv Processor `path:"/conversation/to/(.*?)" func:"PostConversation" method:"POST"`
 		Conv     Processor `path:"/conversation/([0-9]+)" func:"GetConversation" method:"GET"`
-		Update   Streaming `path:"/conversation/streaming" method:"GET"`
+		Watch    Streaming `path:"/conversation/streaming" method:"GET"`
 	}
 
 	// call /hello/{host}/to/{guest} and get a string.
@@ -20,35 +26,33 @@ Define a service struct like this:
 	// call /conversation/to/{people}, post a string as text and return a conversation object.
 	// the post content will unmarshal to the last parameter of processor.
 	// when save the conversation to db, send new conv to people through streaming api.
-	func (s RESTService) PostConversation(people, post string) Conversation {
-		path, _ := s.Conv.Path(1)
-		s.RedirectTo(path)
+	func (s RESTService) PostConversation(to, post string) Conversation {
 		conv := Conversation{
-			Id: 1,
-			To: people,
+			Id:   1,
+			To:   to,
 			Text: post,
 		}
-		// save conv to db
-		s.Update.Feed(people)
+		path, _ := s.Conv.Path(conv.Id)
+		s.RedirectTo(path)
+		s.Watch.Feed(to, conv)
 		return conv
 	}
 
 	// call /conversation/{id} and get the conversation object.
 	// rest will automatically convert id in url to int type. if convert failed, return bad request.
 	func (s RESTService) GetConversation(id int) Conversation {
-		conv := // load conversation with id
-		return conv
+		return Conversation{
+			Id:   1,
+			To:   "to",
+			Text: "post",
+		}
 	}
 
 	// call /conversation/streaming, create a long connection and get the conversation update ASAP.
 	// this function will be called when connecting to get a identity from request.
 	// when feeding streaming, all connection with same identity will send the data.
-	func (s RESTService) Update_() string {
-		to := s.Request().URL.Query().Get("user")
-		if to == "" {
-			s.Error(http.StatusBadRequest, fmt.Errorf("need user."))
-		}
-		return to
+	func (s RESTService) Watch_() string {
+		return s.Request().URL.Query().Get("user")
 	}
 
 The field tag of RESTService configure the parameters of processor, like method, path, or function which 

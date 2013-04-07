@@ -257,26 +257,56 @@ func sendRequest(handler http.Handler, r *http.Request) (ret string, code int, h
 	return resp.buf.String(), resp.status, resp.header
 }
 
+type Conversation struct {
+	Id   int
+	To   string
+	Text string
+}
+
 type RESTService struct {
 	Service `prefix:"/prefix"`
 
 	Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
-	PostConv Processor `path:"/conversation" func:"PostConversation" method:"POST"`
+	PostConv Processor `path:"/conversation/to/(.*?)" func:"PostConversation" method:"POST"`
 	Conv     Processor `path:"/conversation/([0-9]+)" func:"GetConversation" method:"GET"`
+	Watch    Streaming `path:"/conversation/streaming" method:"GET"`
 }
 
+// call /hello/{host}/to/{guest} and get a string.
 func (s RESTService) Hello_(host, guest string) string {
 	return "hello from " + host + " to " + guest
 }
 
-func (s RESTService) PostConversation(post string) string {
-	path, _ := s.Conv.Path(1)
+// call /conversation/to/{people}, post a string as text and return a conversation object.
+// the post content will unmarshal to the last parameter of processor.
+// when save the conversation to db, send new conv to people through streaming api.
+func (s RESTService) PostConversation(to, post string) Conversation {
+	conv := Conversation{
+		Id:   1,
+		To:   to,
+		Text: post,
+	}
+	path, _ := s.Conv.Path(conv.Id)
 	s.RedirectTo(path)
-	return "just post: " + post
+	s.Watch.Feed(to, conv)
+	return conv
 }
 
-func (s RESTService) GetConversation(id int) string {
-	return fmt.Sprintf("get post id %d", id)
+// call /conversation/{id} and get the conversation object.
+// rest will automatically convert id in url to int type. if convert failed, return bad request.
+func (s RESTService) GetConversation(id int) Conversation {
+	return Conversation{
+		Id:   1,
+		To:   "to",
+		Text: "post",
+	}
+}
+
+// call /conversation/streaming, create a long connection and get the conversation update ASAP.
+// this function will be called when connecting to get a identity from request.
+// when feeding streaming, all connection with same identity will send the data.
+func (s RESTService) Watch_() string {
+	return s.Request().URL.Query().Get("user")
 }
 
 func ExampleRest() {
