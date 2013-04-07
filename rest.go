@@ -49,7 +49,7 @@ Define a service struct like this:
 		}
 	}
 
-	// call /conversation/streaming, create a long connection and get the conversation update ASAP.
+	// call /conversation/streaming?user=abc, create a long connection and get the conversation update of abc ASAP.
 	// this function will be called when connecting to get a identity from request.
 	// when feeding streaming, all connection with same identity will send the data.
 	func (s RESTService) Watch_() string {
