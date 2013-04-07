@@ -7,22 +7,48 @@ Define a service struct like this:
 		Service `prefix:"/prefix"`
 
 		Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
-		PostConv Processor `path:"/conversation" func:"PostConversation" method:"POST"`
+		PostConv Processor `path:"/conversation/to/(.*?)" func:"PostConversation" method:"POST"`
 		Conv     Processor `path:"/conversation/([0-9]+)" func:"GetConversation" method:"GET"`
+		Update   Streaming `path:"/conversation/streaming" method:"GET"`
 	}
 
+	// call /hello/{host}/to/{guest} and get a string.
 	func (s RESTService) Hello_(host, guest string) string {
 		return "hello from " + host + " to " + guest
 	}
 
-	func (s RESTService) PostConversation(post string) string {
+	// call /conversation/to/{people}, post a string as text and return a conversation object.
+	// the post content will unmarshal to the last parameter of processor.
+	// when save the conversation to db, send new conv to people through streaming api.
+	func (s RESTService) PostConversation(people, post string) Conversation {
 		path, _ := s.Conv.Path(1)
 		s.RedirectTo(path)
-		return "just post: " + post
+		conv := Conversation{
+			Id: 1,
+			To: people,
+			Text: post,
+		}
+		// save conv to db
+		s.Update.Feed(people)
+		return conv
 	}
 
-	func (s RESTService) GetConversation(id int) string {
-		return fmt.Sprintf("get post id %d", id)
+	// call /conversation/{id} and get the conversation object.
+	// rest will automatically convert id in url to int type. if convert failed, return bad request.
+	func (s RESTService) GetConversation(id int) Conversation {
+		conv := // load conversation with id
+		return conv
+	}
+
+	// call /conversation/streaming, create a long connection and get the conversation update ASAP.
+	// this function will be called when connecting to get a identity from request.
+	// when feeding streaming, all connection with same identity will send the data.
+	func (s RESTService) Update_() string {
+		to := s.Request().URL.Query().Get("user")
+		if to == "" {
+			s.Error(http.StatusBadRequest, fmt.Errorf("need user."))
+		}
+		return to
 	}
 
 The field tag of RESTService configure the parameters of processor, like method, path, or function which 
