@@ -273,6 +273,7 @@ type RESTService struct {
 }
 
 // call /hello/{host}/to/{guest} and get a string.
+// parameters in url will pass to processor's function orderly.
 func (s RESTService) Hello_(host, guest string) string {
 	return "hello from " + host + " to " + guest
 }
