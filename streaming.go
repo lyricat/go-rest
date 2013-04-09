@@ -122,25 +122,6 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 		http.Error(ctx.responseWriter, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	c := make(chan interface{})
-	defer func() {
-		s.locker.Lock()
-		defer s.locker.Unlock()
-		conn.Close()
-		func() {
-			// c may have closed
-			defer func() { recover() }()
-			close(c)
-		}()
-		if conns, ok := s.connections[identity]; ok {
-			delete(conns, ctx.request.RemoteAddr)
-			if len(conns) == 0 {
-				delete(s.connections, identity)
-			} else {
-				s.connections[identity] = conns
-			}
-		}
-	}()
 
 	response := "HTTP/1.1 200 OK\r\n"
 	ctx.responseWriter.Header().Set("Connection", "keep-alive")
@@ -163,6 +144,8 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 		return
 	}
 
+	c := make(chan interface{})
+
 	s.locker.Lock()
 	conns, ok := s.connections[identity]
 	if !ok {
@@ -174,6 +157,25 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 	conns[ctx.request.RemoteAddr] = c
 	s.connections[identity] = conns
 	s.locker.Unlock()
+
+	defer func() {
+		s.locker.Lock()
+		defer s.locker.Unlock()
+		conn.Close()
+		func() {
+			// c may have closed
+			defer func() { recover() }()
+			close(c)
+		}()
+		if conns, ok := s.connections[identity]; ok {
+			delete(conns, ctx.request.RemoteAddr)
+			if len(conns) == 0 {
+				delete(s.connections, identity)
+			} else {
+				s.connections[identity] = conns
+			}
+		}
+	}()
 
 	for {
 		select {

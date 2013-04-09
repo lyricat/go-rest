@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type TestStreaming struct {
@@ -67,6 +68,8 @@ func TestStreamingService(t *testing.T) {
 		}
 		c <- 1
 
+		time.Sleep(time.Second / 4)
+
 		<-c
 
 		expect1 := "1\n2\n\"abc\"\n"
@@ -93,6 +96,7 @@ func TestStreamingService(t *testing.T) {
 		}
 
 		<-c
+		time.Sleep(time.Second / 4)
 		<-c
 		_, err = resp1.Body.Read(buf1)
 		if err == nil {
