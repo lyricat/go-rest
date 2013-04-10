@@ -57,12 +57,10 @@ func (s Streaming) Feed(identity string, data interface{}) {
 		return
 	}
 	for _, c := range conns {
-		go func() {
-			select {
-			case <-time.After(s.timeout):
-			case c <- data:
-			}
-		}()
+		select {
+		case <-time.After(s.timeout):
+		case c <- data:
+		}
 	}
 }
 
