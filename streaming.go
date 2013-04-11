@@ -58,7 +58,7 @@ func (s Streaming) Feed(identity string, data interface{}) {
 	}
 	for _, c := range conns {
 		select {
-		case <-time.After(s.timeout):
+		case <-time.After(0):
 		case c <- data:
 		}
 	}
@@ -147,7 +147,7 @@ func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.V
 		return
 	}
 
-	c := make(chan interface{})
+	c := make(chan interface{}, 10)
 
 	s.locker.Lock()
 	conns, ok := s.connections[identity]
