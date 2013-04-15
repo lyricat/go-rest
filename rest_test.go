@@ -4,313 +4,129 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchrcom/testify/assert"
-	"io/ioutil"
 	"net/http"
+	"reflect"
 	"testing"
 )
 
-type FullTest struct {
-	Service `prefix:"/test/" realm:"tester"`
+type TestDefault struct {
+	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 
-	Hello    Processor `method:"GET" path:"/hello/([a-zA-Z0-9]+)"`
-	Print    Processor `method:"POST" path:"/print/([0-9]+)"`
-	Error_   Processor `method:"GET" path:"/error" func:"ErrorFunc"`
-	Request  Processor `method:"GET" path:"/request"`
-	NoReturn Processor `method:"POST" path:"/noreturn"`
-
-	a int
+	Default FakeNode `path:"/default" method:"METHOD" other:"other"`
 }
 
-func (t FullTest) Hello_(guest string) string {
-	path, _ := t.Hello.Path(guest)
-	t.RedirectTo(path)
-	return "hello " + guest
+func (s TestDefault) HandleDefault() {}
+
+type TestFunc struct {
+	Func FakeNode `path:"/func" method:"METHOD" func:"FuncHandler"`
+
+	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 }
 
-func (t FullTest) Print_(id int, post string) string {
-	ret := fmt.Sprintf("id(%d) post: %s", id, post)
-	t.Header().Set("Type", "abcd")
-	path, _ := t.Hello.Path("guest")
-	t.Header().Set("Location", path)
-	t.WriteHeader(http.StatusCreated)
-	return ret
-}
+func (s TestFunc) FuncHandler() {}
 
-func (t FullTest) ErrorFunc() string {
-	t.Error(http.StatusInternalServerError, fmt.Errorf("error: %s", "no reason"))
-	return ""
-}
-
-func (t FullTest) Request_() string {
-	query := t.Service.Request().URL.Query()
-	header := t.Service.Request().Header
-	return query.Get("a") + header.Get("B")
-}
-
-func (t FullTest) NoReturn_() {}
-
-func TestRestful(t *testing.T) {
-	test := new(FullTest)
-	handler, err := New(test)
-	if err != nil {
-		t.Fatalf("can't init test: %s", err)
-	}
-
-	if handler.Prefix() != "/test" {
-		t.Fatal("handler root invalid:", handler.Prefix())
-	}
-
-	{
-		r, err := http.NewRequest("GET", "http://127.0.0.1:12345/test/hello/restful", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp, status, header := sendRequest(handler, r)
-		if status != http.StatusTemporaryRedirect {
-			t.Errorf("call hello/restful status not redirect: %d", status)
-		}
-		if header.Get("Location") != "/test/hello/restful" {
-			t.Errorf("call hello/restful location error: %s", header.Get("Location"))
-		}
-		if resp != "\"hello restful\"\n" {
-			t.Errorf("call hello/restful response error: [%s]", resp)
-		}
-	}
-
-	{
-		buf := bytes.NewBufferString(`"post content"`)
-		r, err := http.NewRequest("POST", "http://127.0.0.1:12345/test/print/123", buf)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.Header.Set("Content-Type", "application/json; charset=utf-8")
-		resp, status, header := sendRequest(handler, r)
-		if status != http.StatusCreated {
-			t.Errorf("call print/123 status not created: %d", status)
-		}
-		if header.Get("Content-Type") != "application/json; charset=utf-8" {
-			t.Errorf("call print/123 Content-Type error: %s", header.Get("Content-Type"))
-		}
-		if header.Get("Type") != "abcd" {
-			t.Errorf("call print/123 Type error: %s", header.Get("Type"))
-		}
-		if header.Get("Location") != "/test/hello/guest" {
-			t.Errorf("call print/123 location error: %s", header.Get("Location"))
-		}
-		if resp != "\"id(123) post: post content\"\n" {
-			t.Errorf("call print/123 response error: [%s]", resp)
-		}
-	}
-
-	{
-		r, err := http.NewRequest("GET", "http://127.0.0.1:12345/test/error", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp, status, _ := sendRequest(handler, r)
-		if status != http.StatusInternalServerError {
-			t.Errorf("call error status not redirect: %d", status)
-		}
-		if resp != "error: no reason\n" {
-			t.Errorf("call error response error: [%s]", resp)
-		}
-	}
-
-	{
-		r, err := http.NewRequest("GET", "http://127.0.0.1:12345/test/request?a=123", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.Header.Set("B", "abc")
-		resp, status, _ := sendRequest(handler, r)
-		if status != http.StatusOK {
-			t.Errorf("call error status not ok: %d", status)
-		}
-		if resp != "\"123abc\"\n" {
-			t.Errorf("call error response error: [%s]", resp)
-		}
-	}
-
-	{
-		r, err := http.NewRequest("POST", "http://127.0.0.1:12345/test/noreturn", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.Header.Set("Content-Type", "application/xml; charset=gbk")
-		resp, status, _ := sendRequest(handler, r)
-		if status != http.StatusOK {
-			t.Errorf("call error status not ok: %d", status)
-		}
-		if resp != "" {
-			t.Errorf("call error response error: [%s]", resp)
-		}
-	}
-}
-
-type NoServiceTest struct{}
-type ServiceNotFirstTest struct {
-	a int
+type TestNoMethod struct {
 	Service
+
+	NoMethod FakeNode `path:"/no/method"`
 }
-type NoHandlerService struct {
+
+type TestNoPath struct {
 	Service
-	Hello Processor
-}
-type HandlerNotMatchService struct {
-	Service
-	Hello Processor `path:"/hello/(.*?)"`
+
+	NoMethod FakeNode `method:"METHOD"`
 }
 
-func (s HandlerNotMatchService) Hello_() {}
+type TestNoService struct{}
 
-func TestServiceError(t *testing.T) {
-	var tests = []interface{}{
-		1,
-		new(NoServiceTest),
-		new(ServiceNotFirstTest),
-		new(NoHandlerService),
-		new(HandlerNotMatchService),
-	}
-
-	for i, test := range tests {
-		_, err := New(test)
-		if err == nil {
-			t.Errorf("test %d should error", i)
-		}
-	}
-}
-
-func TestGetContentType(t *testing.T) {
+func TestNewRest(t *testing.T) {
 	type Test struct {
-		contentType string
-		mime        string
-		charset     string
+		instance interface{}
+
+		ok           bool
+		serviceIndex int
+		prefix       string
+		mime         string
+		charset      string
+		formatter    pathFormatter
+		f            string
+		tag          reflect.StructTag
 	}
 	var tests = []Test{
-		{"", "", ""},
-		{"application/xml", "application/xml", ""},
-		{"application/xml; charset=gbk", "application/xml", "gbk"},
-		{"application/xml; other=abc; charset=gbk", "application/xml", "gbk"},
-		{"application/xml; other=abc", "application/xml", ""},
+		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", "HandleDefault", `path:"/default" method:"METHOD" other:"other"`},
+		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/default", "FuncHandler", `path:"/func" method:"METHOD" func:"FuncHandler"`},
+		{new(TestNoService), false, 0, "", "", "", "", "", ""},
+		{new(TestNoMethod), false, 0, "", "", "", "", "", ""},
+		{new(TestNoPath), false, 0, "", "", "", "", "", ""},
 	}
-
 	for i, test := range tests {
-		req, _ := http.NewRequest("GET", "http://127.0.0.1/", nil)
-		req.Header.Set("Content-Type", test.contentType)
-		mime, charset := getContentTypeFromRequset(req)
-		assert.Equal(t, mime, test.mime, fmt.Sprintf("test %d", i))
-		assert.Equal(t, charset, test.charset, fmt.Sprintf("test %d", i))
+		r, err := New(test.instance)
+		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
+		if err != nil || !test.ok {
+			continue
+		}
+		assert.Equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %i"), i)
+		assert.Equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %i"), i)
+		assert.Equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %i"), i)
+		node, ok := r.router.Routes[0].Dest.(*innerFakeNode)
+		if !ok {
+			fmt.Errorf("node not innerFakeNode")
+			continue
+		}
+		assert.Equal(t, node.formatter, test.formatter, fmt.Sprintf("test %i", i))
+		assert.Equal(t, node.f.Type.Name(), test.f, fmt.Sprintf("test %i", i))
+		assert.Equal(t, node.tag, test.tag, fmt.Sprintf("test %i", i))
 	}
 }
 
-type FindProcessor struct{}
-
-func (t FindProcessor) handler1()                {}
-func (t FindProcessor) handler2(a string)        {}
-func (t FindProcessor) handler3(b string, c int) {}
-
-func respHelper(resp *http.Response, e error) (ret string, code int, header http.Header, err error) {
-	if e != nil {
-		err = e
-		return
-	}
-	defer resp.Body.Close()
-	code = resp.StatusCode
-	header = resp.Header
-	body, e := ioutil.ReadAll(resp.Body)
-	if e != nil {
-		panic(e)
-	}
-	ret = string(body)
-	return
-}
-
-type responseWriter struct {
-	status int
-	header http.Header
-	buf    *bytes.Buffer
-}
-
-func newResponseWriter() *responseWriter {
-	return &responseWriter{
-		status: http.StatusOK,
-		header: make(http.Header),
-		buf:    bytes.NewBuffer(nil),
-	}
-}
-
-func (w *responseWriter) Header() http.Header {
-	return w.header
-}
-
-func (w *responseWriter) Write(p []byte) (int, error) {
-	return w.buf.Write(p)
-}
-
-func (w *responseWriter) WriteHeader(status int) {
-	w.status = status
-}
-
-func sendRequest(handler http.Handler, r *http.Request) (ret string, code int, header http.Header) {
-	resp := newResponseWriter()
-	handler.ServeHTTP(resp, r)
-	return resp.buf.String(), resp.status, resp.header
-}
-
-type Conversation struct {
-	Id   int
-	To   string
-	Text string
-}
-
-type RESTService struct {
+type TestPost struct {
 	Service `prefix:"/prefix"`
 
-	Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
-	PostConv Processor `path:"/conversation/to/(.*?)" func:"PostConversation" method:"POST"`
-	Conv     Processor `path:"/conversation/([0-9]+)" func:"GetConversation" method:"GET"`
-	Watch    Streaming `path:"/conversation/streaming" method:"GET"`
+	Node   FakeNode `method:"POST" path:"/node"`
+	NodeId FakeNode `method:"GET" path:"/node/:id" func:"HandleNode"`
 }
 
-// call /hello/{host}/to/{guest} and get a string.
-// parameters in url will pass to processor's function orderly.
-func (s RESTService) Hello_(host, guest string) string {
-	return "hello from " + host + " to " + guest
-}
+func (r TestPost) HandleNode() {}
 
-// call /conversation/to/{people}, post a string as text and return a conversation object.
-// the post content will unmarshal to the last parameter of processor.
-// when save the conversation to db, send new conv to people through streaming api.
-func (s RESTService) PostConversation(to, post string) Conversation {
-	conv := Conversation{
-		Id:   1,
-		To:   to,
-		Text: post,
+func TestRestServeHTTP(t *testing.T) {
+	type Test struct {
+		method string
+		url    string
+
+		code      int
+		node      *FakeNode
+		formatter pathFormatter
+		vars      map[string]string
 	}
-	path, _ := s.Conv.Path(conv.Id)
-	s.RedirectTo(path)
-	s.Watch.Feed(to, conv)
-	return conv
-}
-
-// call /conversation/{id} and get the conversation object.
-// rest will automatically convert id in url to int type. if convert failed, return bad request.
-func (s RESTService) GetConversation(id int) Conversation {
-	return Conversation{
-		Id:   1,
-		To:   "to",
-		Text: "post",
+	instance := new(TestPost)
+	rest, err := New(instance)
+	if err != nil {
+		t.Fatalf("new rest service failed: %s", err)
 	}
-}
+	var tests = []Test{
+		{"GET", "http://domain/prefix/node/123", http.StatusOK, &instance.NodeId, "/prefix/node/:id", map[string]string{"id": "123"}},
+		{"GET", "http://domain/prefix/node/", http.StatusNotFound, nil, "", nil},
 
-// call /conversation/streaming, create a long connection and get the conversation update ASAP.
-// this function will be called when connecting to get a identity from request.
-// when feeding streaming, all connection with same identity will send the data.
-func (s RESTService) Watch_() string {
-	return s.Request().URL.Query().Get("user")
-}
+		{"POST", "http://domain/prefix/node", http.StatusOK, &instance.Node, "/prefix/node", nil},
+		{"POST", "http://domain/prefix/no/exist", http.StatusNotFound, nil, "", nil},
+		{"GET", "http://domain/prefix/node", http.StatusNotFound, nil, "", nil},
+	}
+	for i, test := range tests {
+		buf := bytes.NewBuffer(nil)
+		req, err := http.NewRequest(test.method, test.url, buf)
+		if err != nil {
+			t.Fatalf("test %d create request failed", i, err)
+		}
+		w := newWriter()
+		rest.ServeHTTP(w, req)
+		assert.Equal(t, w.code, test.code, fmt.Sprintf("test %d code: %s", i, w.code))
+		if w.code != http.StatusOK {
+			continue
+		}
+		assert.Equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %i", i))
+		assert.Equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %i", i))
 
-func ExampleRest() {
-	handler, _ := New(new(RESTService))
-	http.ListenAndServe("127.0.0.1:8080", handler)
+		service := test.node.lastInstance.Field(0).Interface().(Service)
+		assert.Equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %i", i))
+	}
 }

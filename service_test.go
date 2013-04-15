@@ -43,6 +43,7 @@ func TestService(t *testing.T) {
 		assert.Equal(t, charset, test.charset, fmt.Sprintf("test %d", i))
 	}
 
+	// overwrite tag
 	for i, test := range tests {
 		service := new(Service)
 		service.Prefix = "/abcde"

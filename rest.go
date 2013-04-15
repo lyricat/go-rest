@@ -3,211 +3,212 @@ Package rest is a RESTful web-service framework. It make struct method to http.H
 
 Define a service struct like this:
 
-	type Conversation struct {
-		Id   int
-		To   string
-		Text string
+	type RestExample struct {
+		Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
+
+		CreateHello Processor `method:"POST" path:"/hello"`
+		GetHello    Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
+		Watch       Streaming `method:"GET" path:"/hello/:to/streaming"`
+
+		post  map[string]string
+		watch map[string]chan string
 	}
 
-	type RESTService struct {
-		Service `prefix:"/prefix"`
-
-		Hello    Processor `path:"/hello/(.*?)/to/(.*?)" method:"GET"`
-		PostConv Processor `path:"/conversation/to/(.*?)" func:"PostConversation" method:"POST"`
-		Conv     Processor `path:"/conversation/([0-9]+)" func:"GetConversation" method:"GET"`
-		Watch    Streaming `path:"/conversation/streaming" method:"GET"`
+	type HelloArg struct {
+		To   string `json:"to"`
+		Post string `json:"post"`
 	}
 
-	// call /hello/{host}/to/{guest} and get a string.
-	// parameters in url will pass to processor's function orderly.
-	func (s RESTService) Hello_(host, guest string) string {
-		return "hello from " + host + " to " + guest
+	// Post example:
+	// > curl "http://127.0.0.1:8080/prefix/hello" -d '{"to":"rest", "post":"rest is powerful"}'
+	//
+	// No response
+	func (r RestExample) HandleCreateHello(arg HelloArg) {
+		r.post[arg.To] = arg.Post
+		c, ok := r.watch[arg.To]
+		if ok {
+			select {
+			case c <- arg.Post:
+			default:
+			}
+		}
 	}
 
-	// call /conversation/to/{people}, post a string as text and return a conversation object.
-	// the post content will unmarshal to the last parameter of processor.
-	// when save the conversation to db, send new conv to people through streaming api.
-	func (s RESTService) PostConversation(to, post string) Conversation {
-		conv := Conversation{
-			Id:   1,
+	// Get example:
+	// > curl "http://127.0.0.1:8080/prefix/hello/rest"
+	//
+	// Response:
+	//   {"to":"rest","post":"rest is powerful"}
+	func (r RestExample) HandleHello() HelloArg {
+		if r.Vars() == nil {
+			r.Error(http.StatusNotFound, fmt.Errorf("%+v", r.Vars()))
+			return HelloArg{}
+		}
+		to := r.Vars()["to"]
+		post, ok := r.post[to]
+		if !ok {
+			r.Error(http.StatusNotFound, fmt.Errorf("can't find hello to %s", to))
+			return HelloArg{}
+		}
+		return HelloArg{
 			To:   to,
-			Text: post,
-		}
-		path, _ := s.Conv.Path(conv.Id)
-		s.RedirectTo(path)
-		s.Watch.Feed(to, conv)
-		return conv
-	}
-
-	// call /conversation/{id} and get the conversation object.
-	// rest will automatically convert id in url to int type. if convert failed, return bad request.
-	func (s RESTService) GetConversation(id int) Conversation {
-		return Conversation{
-			Id:   1,
-			To:   "to",
-			Text: "post",
+			Post: post,
 		}
 	}
 
-	// call /conversation/streaming?user=abc, create a long connection and get the conversation update of abc ASAP.
-	// this function will be called when connecting to get a identity from request.
-	// when feeding streaming, all connection with same identity will send the data.
-	func (s RESTService) Watch_() string {
-		return s.Request().URL.Query().Get("user")
+	// Streaming example:
+	// > curl "http://127.0.0.1:8080/prefix/hello/rest/streaming"
+	//
+	// It create a long-live connection and will receive post content "rest is powerful"
+	// when running post example.
+	func (r RestExample) HandleWatch(s Stream) {
+		to := r.Vars()["to"]
+		if to == "" {
+			r.Error(http.StatusBadRequest, fmt.Errorf("need to"))
+			return
+		}
+		r.WriteHeader(http.StatusOK)
+		c := make(chan string)
+		r.watch[to] = c
+		for {
+			post := <-c
+			s.SetDeadline(time.Now().Add(time.Second))
+			err := s.Write(post)
+			if err != nil {
+				close(c)
+				delete(r.watch, to)
+				return
+			}
+		}
 	}
 
-The field tag of RESTService configure the parameters of processor, like method, path, or function which 
+The field tag of Service configure the parameters of processor, like method, path, or function which 
 will process the request.
 
 The path of processor can capture arguments, which will pass to process function by order in path. Arguments
 type can be string or int, or any type which kind is string or int. 
 
-The default name of processor is the name of field postfix with "_", like Hello processor correspond Hello_ method.
+The default name of handler is the name of field prefix with "Handle",
+like Watch handelr correspond HandleWatch method.
 
-Get the http.Handler from RESTService:
+Get the http.Handler from RestExample:
 
-	handler, err := rest.New(new(RESTService))
+	handler, err := rest.New(&RestExample{
+		post:  make(map[string]string),
+		watch: make(map[string]chan string),
+	})
 	http.ListenAndServe("127.0.0.1:8080", handler)
 
 Or use gorilla mux and work with other http handlers:
 
 	// import "github.com/gorilla/mux"
 	router := mux.NewRouter()
-	handler, err := rest.New(new(RESTService))
+	handler, err := rest.New(&RestExample{
+		post:  make(map[string]string),
+		watch: make(map[string]chan string),
+	})
 	router.PathPrefix(handler.Prefix()).Handle(handler)
 */
 package rest
 
 import (
 	"fmt"
+	"github.com/itsabadcode/go-urlrouter"
 	"net/http"
 	"reflect"
 )
 
 // Rest handle the http request and call to correspond the handler(processor or streaming).
 type Rest struct {
+	instance       reflect.Value
+	serviceIndex   int
+	router         *urlrouter.Router
 	prefix         string
-	defaultCharset string
 	defaultMime    string
-
-	instance reflect.Value
-	handlers []*node
+	defaultCharset string
 }
 
 // Create Rest instance from service instance
-func New(i interface{}) (*Rest, error) {
-	instance := reflect.ValueOf(i)
-	if instance.Kind() != reflect.Struct && instance.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("%s's kind must struct or point to struct")
-	}
+func New(s interface{}) (*Rest, error) {
+	router := new(urlrouter.Router)
+
+	instance := reflect.ValueOf(s)
 	if instance.Kind() == reflect.Ptr {
 		instance = instance.Elem()
 	}
 	t := instance.Type()
-	serviceType, ok := t.FieldByName("Service")
-	if !ok {
-		return nil, fmt.Errorf("can't find restful.Service field")
+	serviceIndex, prefix, mime, charset := -1, "", "", ""
+	for i, n := 0, instance.NumField(); i < n; i++ {
+		field := instance.Field(i)
+		if field.Type().String() == "rest.Service" {
+			p, m, c, err := initService(field, t.Field(i).Tag)
+			if err != nil {
+				return nil, err
+			}
+			serviceIndex, prefix, mime, charset = i, p, m, c
+		}
 	}
-	if serviceType.Index[0] != 0 {
-		return nil, fmt.Errorf("%s's 1st field must be restful.Service", t.Name())
+	if serviceIndex < 0 {
+		return nil, fmt.Errorf("%s doesn't contain rest.Service field.", t.Name())
+	}
+	for i, n := 0, instance.NumField(); i < n; i++ {
+		handler := instance.Field(i)
+		node, formatter, err := newNode(instance.Type(), handler, prefix, t.Field(i))
+		if err == invalidHandler {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		router.Routes = append(router.Routes, urlrouter.Route{
+			PathExp: fmt.Sprintf("/%s/%s", node.method, formatter),
+			Dest:    node,
+		})
 	}
 
-	serviceTag := serviceType.Tag
-	service := instance.Field(0)
-	prefix, mime, charset, err := initService(service, serviceTag)
+	err := router.Start()
 	if err != nil {
 		return nil, err
 	}
 
-	var handlers []*node
-	for i, n := 0, instance.NumField(); i < n; i++ {
-		handlerType := t.Field(i)
-		if capital := handlerType.Name[0]; !('A' <= capital && capital <= 'Z') {
-			continue
-		}
-		handler := instance.Field(i)
-		if _, ok := handler.Interface().(nodeInterface); !ok {
-			continue
-		}
-
-		node, err := newNode(t, prefix, handler, handlerType)
-		if err != nil {
-			return nil, err
-		}
-		handlers = append(handlers, node)
-	}
-
 	return &Rest{
+		instance:       instance,
+		serviceIndex:   serviceIndex,
+		router:         router,
 		prefix:         prefix,
 		defaultMime:    mime,
 		defaultCharset: charset,
-		handlers:       handlers,
-		instance:       instance,
 	}, nil
 }
 
-// Get the prefix of service.
-func (s Rest) Prefix() string {
-	return s.prefix
+// Get the url prefix of service.
+func (r *Rest) Prefix() string {
+	return r.prefix
 }
 
 // Serve the http request.
-func (s Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var errorCode int
-	defer func() {
-		r := recover()
-		if r != nil {
-			errorCode = http.StatusInternalServerError
-			err = fmt.Errorf("panic: %v", r)
-		}
-		if err != nil {
-			http.Error(w, err.Error(), errorCode)
-		}
-	}()
-
-	node := s.findNode(r)
-	if node == nil {
-		errorCode, err = http.StatusNotFound, fmt.Errorf("can't find node to process %s", r.URL.Path)
+func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	r.URL.Path = fmt.Sprintf("/%s/%s", r.Method, path)
+	dest, vars := re.router.FindRouteFromURL(r.URL)
+	if dest == nil {
+		http.Error(w, "", http.StatusNotFound)
 		return
 	}
+	r.URL.Path = path
 
-	args, e := node.match(r.Method, r.URL.Path)
-	if e != nil {
-		errorCode, err = http.StatusNotFound, e
-		return
-	}
+	node := dest.Dest.(*node)
 
-	ctx, e := newContent(w, r, s.defaultMime, s.defaultCharset)
+	ctx, err := newContext(w, r, vars, re.defaultMime, re.defaultCharset)
 	if err != nil {
-		errorCode, err = http.StatusBadRequest, e
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if req := node.request; req != nil {
-		request := reflect.New(req)
-		err = ctx.marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			errorCode, err = http.StatusBadRequest, fmt.Errorf("can't marshal request to type %s: %s", req, err)
-			return
-		}
-		args = append(args, request.Elem())
-	}
-
-	service := s.instance.Field(0).Interface().(Service)
+	instance := re.instance.Interface()
+	v := reflect.ValueOf(instance)
+	service := v.Field(re.serviceIndex).Interface().(Service)
 	service.ctx = ctx
 
-	node.handle(s.instance, service.ctx, args)
-}
-
-func (s Rest) findNode(r *http.Request) *node {
-	for _, h := range s.handlers {
-		if h.method != r.Method {
-			continue
-		}
-		if h.path.MatchString(r.URL.Path) {
-			return h
-		}
-	}
-	return nil
+	node.handler.handle(re.instance, ctx)
 }

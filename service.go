@@ -39,9 +39,18 @@ func (s Service) Request() *http.Request {
 	return s.ctx.request
 }
 
+// Variables from url.
+func (s Service) Vars() map[string]string {
+	return s.ctx.vars
+}
+
 // Write response code and header. Same as http.ResponseWriter.WriteHeader(int)
 func (s Service) WriteHeader(code int) {
-	s.ctx.responseWriter.WriteHeader(code)
+	if s.ctx.headerWriter != nil {
+		s.ctx.headerWriter.writeHeader(code)
+	} else {
+		s.ctx.responseWriter.WriteHeader(code)
+	}
 }
 
 // Get the response header.

@@ -6,29 +6,85 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"strconv"
-	"sync"
 	"time"
 )
 
-type connection struct {
-	conn       net.Conn
-	bufrw      *bufio.ReadWriter
-	marshaller Marshaller
+/*
+Stream  wrap the connection when using streaming.
+*/
+type Stream struct {
+	ctx          *context
+	conn         net.Conn
+	bufrw        *bufio.ReadWriter
+	writedHeader *bool
+	end          string
 }
 
-type innerStreaming struct {
-	formatter pathFormatter
-	funcIndex int
-	end       string
-	timeout   time.Duration
+func newStream(ctx *context, conn net.Conn, bufrw *bufio.ReadWriter, end string) *Stream {
+	writed := false
+	return &Stream{
+		ctx:          ctx,
+		conn:         conn,
+		bufrw:        bufrw,
+		end:          end,
+		writedHeader: &writed,
+	}
+}
 
-	locker      sync.RWMutex
-	connections map[string]map[string]chan interface{}
+// Write data i as a frame to the connection.
+func (s *Stream) Write(i interface{}) error {
+	s.writeHeader(http.StatusOK)
+
+	err := s.ctx.marshaller.Marshal(s.bufrw, i)
+	if err != nil {
+		return err
+	}
+	_, err = s.bufrw.Write([]byte(s.end))
+	if err != nil {
+		return err
+	}
+	err = s.bufrw.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetDeadline sets the connection's network read & write deadlines.
+func (s *Stream) SetDeadline(t time.Time) error {
+	return s.conn.SetDeadline(t)
+}
+
+// SetReadDeadline sets the connection's network read deadlines.
+func (s *Stream) SetReadDeadline(t time.Time) error {
+	return s.conn.SetReadDeadline(t)
+}
+
+// SetWriteDeadline sets the connection's network write deadlines.
+func (s *Stream) SetWriteDeadline(t time.Time) error {
+	return s.conn.SetWriteDeadline(t)
+}
+
+func (s *Stream) writeHeader(code int) {
+	if *s.writedHeader {
+		return
+	}
+	s.bufrw.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
+	s.ctx.responseWriter.Header().Write(s.bufrw)
+	s.bufrw.Write([]byte("\r\n"))
+	s.bufrw.Flush()
+	*s.writedHeader = true
 }
 
 /*
 Define the streaming.
+
+The streaming's handle function may take 1 or 2 input parameters and no return:
+
+ - func Handler(s rest.Stream) or
+ - func Handler(s rest.Stream, post PostType)
+
+First parameter Stream is use for sending data when connecting.
 
 Valid tag:
 
@@ -37,7 +93,6 @@ Valid tag:
  - func: Define the get-identity function, which signature like func() string.
  - mime: Define the default mime of request's and response's body. It overwrite the service one.
  - end: Define the end of one data when streaming working.
- - timeout: Define the timeout to check connection.
 
 To be implement:
  - charset: Define the default charset of request's and response's body. It overwrite the service one.
@@ -47,166 +102,80 @@ type Streaming struct {
 	*innerStreaming
 }
 
-// Feed the all streaming with identity. The data will marshal to string and followed by end
-func (s Streaming) Feed(identity string, data interface{}) {
-	s.locker.RLock()
-	defer s.locker.RUnlock()
-
-	conns, ok := s.connections[identity]
-	if !ok {
-		return
-	}
-	for _, c := range conns {
-		select {
-		case <-time.After(0):
-		case c <- data:
-		}
-	}
+// Generate the path of url to processor. Map args fill parameters in path.
+func (p Streaming) PathMap(args map[string]string) string {
+	return p.formatter.pathMap(args)
 }
 
-// Generate the path of http request to processor. The args will fill in by url order.
-func (s Streaming) Path(args ...interface{}) (string, error) {
-	return s.formatter.path(args...), nil
+// Generate the path of url to processor. It accepts a sequence of key/value pairs, and fill parameters in path.
+func (p Streaming) Path(args ...string) string {
+	return p.formatter.path(args...)
 }
 
-// Dissconnect all connection with identity.
-func (s Streaming) Disconnect(identity string) {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	for _, c := range s.connections[identity] {
-		close(c)
-	}
+type innerStreaming struct {
+	formatter    pathFormatter
+	requestType  reflect.Type
+	responseType reflect.Type
+	funcIndex    int
+	end          string
 }
 
-func (s Streaming) init(streaming reflect.Value, formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
+func (i *innerStreaming) init(formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
 	ft := f.Type
-	if ft.NumOut() != 1 || ft.Out(0).Kind() != reflect.String {
-		return fmt.Errorf("streaming(%s) must return (string, error)", f.Name)
+	if ft.NumIn() > 3 || ft.NumIn() < 2 {
+		return fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", f.Name)
+	}
+	if ft.In(1).String() != "rest.Stream" {
+		return fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", f.Name)
+	}
+	if ft.NumIn() == 3 {
+		i.requestType = ft.In(2)
 	}
 
-	timeout := 1
-	if t := tag.Get("timeout"); t != "" {
-		var err error
-		timeout, err = strconv.Atoi(t)
-		if err != nil {
-			return fmt.Errorf("streaming(%s) has invalid timeout %s", f.Name, t)
-		}
+	if ft.NumOut() > 0 {
+		return fmt.Errorf("streaming(%s) return should no return.", f.Name)
 	}
 
-	streaming.Field(0).Set(reflect.ValueOf(&innerStreaming{
-		formatter:   pathFormatter(formatter),
-		funcIndex:   f.Index,
-		end:         tag.Get("end"),
-		timeout:     time.Duration(timeout) * time.Second,
-		connections: make(map[string]map[string]chan interface{}),
-	}))
+	i.formatter = formatter
+	i.funcIndex = f.Index
+	i.end = tag.Get("end")
 
 	return nil
 }
 
-func (s Streaming) handle(instance reflect.Value, ctx *context, args []reflect.Value) {
-	f := instance.Method(s.funcIndex)
-	ret := f.Call(args)
-	if ctx.isError {
-		return
-	}
+func (i *innerStreaming) handle(instance reflect.Value, ctx *context) {
+	r := ctx.request
+	w := ctx.responseWriter
+	f := instance.Method(i.funcIndex)
+	marshaller := ctx.marshaller
 
-	identity := ret[0].Interface().(string)
-
-	hj, ok := ctx.responseWriter.(http.Hijacker)
+	hj, ok := w.(http.Hijacker)
 	if !ok {
-		http.Error(ctx.responseWriter, "webserver doesn't support streaming", http.StatusInternalServerError)
+		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
 		return
 	}
-
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		http.Error(ctx.responseWriter, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := "HTTP/1.1 200 OK\r\n"
+	stream := newStream(ctx, conn, bufrw, i.end)
+	ctx.headerWriter = stream
+
+	args := []reflect.Value{reflect.ValueOf(*stream)}
+	if i.requestType != nil {
+		request := reflect.New(i.requestType)
+		err := marshaller.Unmarshal(r.Body, request.Interface())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		args = append(args, request.Elem())
+	}
+
 	ctx.responseWriter.Header().Set("Connection", "keep-alive")
 	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
 
-	_, err = bufrw.Write([]byte(response))
-	if err != nil {
-		return
-	}
-	err = ctx.responseWriter.Header().Write(bufrw)
-	if err != nil {
-		return
-	}
-	_, err = bufrw.Write([]byte("\r\n"))
-	if err != nil {
-		return
-	}
-	err = bufrw.Flush()
-	if err != nil {
-		return
-	}
-
-	c := make(chan interface{}, 10)
-
-	s.locker.Lock()
-	conns, ok := s.connections[identity]
-	if !ok {
-		conns = make(map[string]chan interface{})
-	}
-	if c, ok := conns[ctx.request.RemoteAddr]; ok {
-		close(c)
-	}
-	conns[ctx.request.RemoteAddr] = c
-	s.connections[identity] = conns
-	s.locker.Unlock()
-
-	defer func() {
-		s.locker.Lock()
-		defer s.locker.Unlock()
-		conn.Close()
-		func() {
-			// c may have closed
-			defer func() { recover() }()
-			close(c)
-		}()
-		if conns, ok := s.connections[identity]; ok {
-			delete(conns, ctx.request.RemoteAddr)
-			if len(conns) == 0 {
-				delete(s.connections, identity)
-			} else {
-				s.connections[identity] = conns
-			}
-		}
-	}()
-
-	for {
-		select {
-		case data, ok := <-c:
-			if !ok {
-				return
-			}
-			err := ctx.marshaller.Marshal(bufrw, data)
-			if err != nil {
-				return
-			}
-			conn.SetWriteDeadline(time.Now().Add(s.timeout))
-			_, err = bufrw.Write([]byte(s.end))
-			if err != nil {
-				return
-			}
-			err = bufrw.Flush()
-			if err != nil {
-				return
-			}
-		case <-time.After(s.timeout):
-			buf := make([]byte, 1)
-			conn.SetReadDeadline(time.Now().Add(time.Second / 1000))
-			_, err := conn.Read(buf)
-			if e, ok := err.(net.Error); err == nil || (ok && e.Timeout()) {
-				continue
-			}
-			return
-		}
-	}
+	f.Call(args)
 }
