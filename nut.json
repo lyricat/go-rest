@@ -1,0 +1,15 @@
+{
+  "Version": "0.3.0",
+  "Vendor": "googollee",
+  "Authors": [
+    {
+      "FullName": "Googol Lee",
+      "Email": "googollee@gmail.com"
+    }
+  ],
+  "ExtraFiles": [
+    "README.md",
+    "LICENSE"
+  ],
+  "Homepage": "https://github.com/googollee/go-rest"
+}
