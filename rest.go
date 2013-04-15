@@ -1,14 +1,14 @@
 /*
-Package rest is a RESTful web-service framework. It make struct method to http.Hander automatically.
+Package rest is a RESTful web-service framework. It make struct method to http.Handler automatically.
 
 Define a service struct like this:
 
 	type RestExample struct {
-		Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
+		rest.Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
 
-		CreateHello Processor `method:"POST" path:"/hello"`
-		GetHello    Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
-		Watch       Streaming `method:"GET" path:"/hello/:to/streaming"`
+		CreateHello rest.Processor `method:"POST" path:"/hello"`
+		GetHello    rest.Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
+		Watch       rest.Streaming `method:"GET" path:"/hello/:to/streaming"`
 
 		post  map[string]string
 		watch map[string]chan string
@@ -61,7 +61,7 @@ Define a service struct like this:
 	//
 	// It create a long-live connection and will receive post content "rest is powerful"
 	// when running post example.
-	func (r RestExample) HandleWatch(s Stream) {
+	func (r RestExample) HandleWatch(s rest.Stream) {
 		to := r.Vars()["to"]
 		if to == "" {
 			r.Error(http.StatusBadRequest, fmt.Errorf("need to"))
