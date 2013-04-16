@@ -77,10 +77,10 @@ func (i *innerProcessor) init(formatter pathFormatter, f reflect.Method, tag ref
 func (i *innerProcessor) handle(instance reflect.Value, ctx *context) {
 	r := ctx.request
 	w := ctx.responseWriter
-	f := instance.Method(i.funcIndex)
 	marshaller := ctx.marshaller
-
+	f := instance.Method(i.funcIndex)
 	var args []reflect.Value
+
 	if i.requestType != nil {
 		request := reflect.New(i.requestType)
 		err := marshaller.Unmarshal(r.Body, request.Interface())
