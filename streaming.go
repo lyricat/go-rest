@@ -159,6 +159,7 @@ func (i *innerStreaming) handle(instance reflect.Value, ctx *context) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer conn.Close()
 
 	stream := newStream(ctx, conn, bufrw, i.end)
 	ctx.headerWriter = stream
