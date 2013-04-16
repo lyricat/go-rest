@@ -123,3 +123,38 @@ Or use gorilla mux and work with other http handlers:
 		watch: make(map[string]chan string),
 	})
 	router.PathPrefix(handler.Prefix()).Handle(handler)
+
+Performance
+-----------
+
+The performance test is in perf_test.go:
+
+ - BenchmarkHttpServeFull: post a string and response a string, through http.ListenAndServe which include connection payload.
+
+ - BenchmarkRestServe: post to a fake node, through Rest.ServeHTTP. It's the time of Rest.ServeHTTP, which mainly url routing and preparing context
+
+ - BenchmarkRestGet: no post, and response a string, through Rest.ServeHTTP.
+
+ - BenchmarkRestPost: post a string and no response, through Rest.ServeHTTP.
+
+ - BenchmarkRestFull: post a string and response a string, through Rest.ServeHTTP.
+
+ - BenchmarkPlainGet: no post and response a string, without go-rest framework. It use to compare BenchmarkRestGet.
+
+ - BenchmarkPlainPost: post a string and no response, without go-rest framework. It use to compare BenchmarkRestPost.
+
+ - BenchmarkPlainFull: post a string and response a string, without go-rest framework. It use to compare BenchmarkRestFull.
+
+The result in mu mbp list below:
+
+	$ go test -test.bench=Benchmark*
+	PASS
+	BenchmarkHttpServeFull	   10000	    132342 ns/op
+	BenchmarkRestServe	  500000	      6238 ns/op
+	BenchmarkRestGet	  200000	     10286 ns/op
+	BenchmarkRestPost	  200000	     11827 ns/op
+	BenchmarkRestFull	  100000	     14679 ns/op
+	BenchmarkPlainGet	  200000	     10089 ns/op
+	BenchmarkPlainPost	  200000	     10739 ns/op
+	BenchmarkPlainFull	  200000	     10539 ns/op
+	
