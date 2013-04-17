@@ -3,6 +3,8 @@ go-rest
 
 Package rest is a RESTful web-service framework. It make struct method to http.Handler automatically.
 
+[![Build Status](https://travis-ci.org/googollee/go-rest.png?branch=master)](https://travis-ci.org/googollee/go-rest/)
+
 Install
 -------
 
