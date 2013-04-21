@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ var ret = "Hello world."
 type BenchmarkRest struct {
 	Service `prefix:"/prefix"`
 
-	Fake FakeNode  `method:"GET" path:"/fake/:id" func:"HandleGet"`
+	Fake FakeNode_ `method:"GET" path:"/fake/:id" func:"HandleGet"`
 	Get  Processor `method:"GET" path:"/processor/:id"`
 	Post Processor `method:"POST" path:"/processor/:id/post"`
 	Full Processor `method:"POST" path:"/processor/:id/full"`
@@ -62,7 +63,7 @@ func BenchmarkRestServe(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		rest.ServeHTTP(resp, req)
 	}
 }
@@ -73,7 +74,7 @@ func BenchmarkRestGet(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		rest.ServeHTTP(resp, req)
 	}
 }
@@ -85,7 +86,7 @@ func BenchmarkRestPost(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		rest.ServeHTTP(resp, req)
 	}
 }
@@ -97,7 +98,7 @@ func BenchmarkRestFull(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		rest.ServeHTTP(resp, req)
 	}
 }
@@ -158,7 +159,7 @@ func BenchmarkPlainGet(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		for _, h := range handlers {
 			if len(h.path.FindAllStringSubmatch(req.URL.Path, -1)) > 0 {
 				h.handler(resp, req)
@@ -174,7 +175,7 @@ func BenchmarkPlainPost(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		for _, h := range handlers {
 			if len(h.path.FindAllStringSubmatch(req.URL.Path, -1)) > 0 {
 				h.handler(resp, req)
@@ -190,7 +191,7 @@ func BenchmarkPlainFull(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		resp := newWriter()
+		resp := httptest.NewRecorder()
 		for _, h := range handlers {
 			if len(h.path.FindAllStringSubmatch(req.URL.Path, -1)) > 0 {
 				h.handler(resp, req)

@@ -149,14 +149,14 @@ The performance test is in perf_test.go:
 
 The result in mu mbp list below:
 
-	$ go test -test.bench=Benchmark*
+	$ go test -test.bench=Bench*
 	PASS
-	BenchmarkHttpServeFull	   10000	    132342 ns/op
-	BenchmarkRestServe	  500000	      6238 ns/op
-	BenchmarkRestGet	  200000	     10286 ns/op
-	BenchmarkRestPost	  200000	     11827 ns/op
-	BenchmarkRestFull	  100000	     14679 ns/op
-	BenchmarkPlainGet	  200000	     10089 ns/op
-	BenchmarkPlainPost	  200000	     10739 ns/op
-	BenchmarkPlainFull	  200000	     10539 ns/op
+	BenchmarkHttpServeFull	   10000	    165538 ns/op
+	BenchmarkRestServe	  500000	      6485 ns/op
+	BenchmarkRestGet	  200000	     10620 ns/op
+	BenchmarkRestPost	  200000	     12614 ns/op
+	BenchmarkRestFull	  100000	     15552 ns/op
+	BenchmarkPlainGet	  200000	     10608 ns/op
+	BenchmarkPlainPost	  200000	     11075 ns/op
+	BenchmarkPlainFull	  200000	     11129 ns/op
 	

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/stretchrcom/testify/assert"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -101,9 +103,15 @@ func TestExample(t *testing.T) {
 
 	assert.Equal(t, rest.Prefix(), "/prefix")
 
-	go http.ListenAndServe("127.0.0.1:12345", rest)
+	server := httptest.NewServer(rest)
+	server.Close()
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go http.ListenAndServe(u.Host, rest)
 
-	resp, err := http.Get("http://127.0.0.1:12345/prefix/hello/rest")
+	resp, err := http.Get(server.URL + "/prefix/hello/rest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +120,7 @@ func TestExample(t *testing.T) {
 
 	c := make(chan int)
 	go func() {
-		resp, err := http.Get("http://127.0.0.1:12345/prefix/hello/rest/streaming")
+		resp, err := http.Get(server.URL + "/prefix/hello/rest/streaming")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -144,7 +152,7 @@ func TestExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err = http.Post("http://127.0.0.1:12345/prefix/hello", "application/json", buf)
+	resp, err = http.Post(server.URL+"/prefix/hello", "application/json", buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +164,7 @@ func TestExample(t *testing.T) {
 		t.Errorf("waiting streaming too long")
 	}
 
-	resp, err = http.Get("http://127.0.0.1:12345/prefix/hello/rest")
+	resp, err = http.Get(server.URL + "/prefix/hello/rest")
 	if err != nil {
 		t.Fatal(err)
 	}

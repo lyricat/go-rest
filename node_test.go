@@ -1,8 +1,11 @@
 package rest
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/stretchrcom/testify/assert"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 )
@@ -53,90 +56,121 @@ func TestFormatter(t *testing.T) {
 	}
 }
 
-type innerFakeNode struct {
-	formatter pathFormatter
-	f         reflect.Method
-	tag       reflect.StructTag
-
-	lastInstance reflect.Value
-	lastCtx      *context
-}
-
-func (h *innerFakeNode) init(formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
-	h.formatter = formatter
-	h.f = f
-	h.tag = tag
-	return nil
-}
-
-func (h *innerFakeNode) handle(instance reflect.Value, ctx *context) {
-	h.lastInstance = instance
-	h.lastCtx = ctx
-}
-
-type FakeNode struct {
-	*innerFakeNode
-}
-
-type FakeNodeService struct {
-	FNode     FakeNode `method:"m" path:"p" func:"F" other:"o"`
-	Node      FakeNode `method:"m" path:"p" other:"o"`
-	NoStruct  int
-	NoPtr     struct{ A int }
-	NoHandler struct{ A *int }
-	NoMethod  FakeNode `path:"p" other:"o"`
-	NoPath    FakeNode `method:"m" other:"o"`
-}
-
-func (s FakeNodeService) F()          {}
-func (s FakeNodeService) HandleNode() {}
-
-func TestNewNode(t *testing.T) {
-	s := new(FakeNodeService)
-	instance := reflect.ValueOf(s)
+func TestProcessorNodeHandle(t *testing.T) {
 	type Test struct {
-		instance reflect.Value
-		node     string
-		prefix   string
+		findex       int
+		requestType  reflect.Type
+		responseType reflect.Type
+		requestBody  string
 
-		ok           bool
-		invalidError bool
-		method       string
-		f            string
-		formatter    pathFormatter
-		tag          reflect.StructTag
+		code         int
+		fname        string
+		input        string
+		responseBody string
 	}
+	s := new(FakeProcessor)
+	s.last = make(map[string]string)
+	instance := reflect.ValueOf(s).Elem()
+	instanceType := instance.Type()
+	nino, ok := instanceType.MethodByName("NoInputNoOutput")
+	if !ok {
+		t.Fatal("no NoInputNoOutput")
+	}
+	ni, ok := instanceType.MethodByName("NoInput")
+	if !ok {
+		t.Fatal("no NoInput")
+	}
+	no, ok := instanceType.MethodByName("NoOutput")
+	if !ok {
+		t.Fatal("no NoOutput")
+	}
+	n, ok := instanceType.MethodByName("Normal")
+	if !ok {
+		t.Fatal("no Normal")
+	}
+
 	var tests = []Test{
-		{instance, "FNode", "", true, false, "m", "F", "/p", `method:"m" path:"p" func:"F" other:"o"`},
-		{instance, "Node", "", true, false, "m", "HandleNode", "/p", `method:"m" path:"p" other:"o"`},
-		{instance, "NoStruct", "", false, true, "", "", "", ""},
-		{instance, "NoPtr", "", false, true, "", "", "", ""},
-		{instance, "NoHandler", "", false, true, "", "", "", ""},
-		{instance, "NoMethod", "", false, false, "", "", "", ""},
-		{instance, "NoPath", "", false, false, "", "", "", ""},
+		{nino.Index, nil, nil, "", http.StatusOK, "NoInputNoOutput", "", ""},
+		{ni.Index, nil, reflect.TypeOf(""), "", http.StatusOK, "NoInput", "", "\"output\"\n"},
+		{no.Index, reflect.TypeOf(""), reflect.TypeOf(""), "\"input\"", http.StatusOK, "NoOutput", "input", ""},
+		{n.Index, reflect.TypeOf(""), reflect.TypeOf(""), "\"input\"", http.StatusOK, "Normal", "input", "\"output\"\n"},
 	}
-
-	s.FNode.innerFakeNode = nil
-	s.Node.innerFakeNode = nil
 	for i, test := range tests {
-		handler := test.instance.Elem().FieldByName(test.node)
-		nodeType, ok := test.instance.Elem().Type().FieldByName(test.node)
-		if !ok {
-			t.Fatalf("can't find %s", test.node)
+		node := processorNode{
+			funcIndex:    test.findex,
+			requestType:  test.requestType,
+			responseType: test.responseType,
 		}
-		n, formatter, err := newNode(test.instance.Elem().Type(), handler, test.prefix, nodeType)
-		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
-		if !test.ok || err != nil {
-			assert.Equal(t, err == invalidHandler, test.invalidError, "test %d error: %s", i, err)
+		buf := bytes.NewBufferString(test.requestBody)
+		req, err := http.NewRequest("GET", "http://fake.domain", buf)
+		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		if err != nil {
 			continue
 		}
-		assert.Equal(t, formatter, test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, n.method, test.method, fmt.Sprintf("test %d", i))
-		h := n.handler.(*innerFakeNode)
-		assert.Equal(t, h.formatter, test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, h.tag, test.tag, fmt.Sprintf("test %d", i))
-		assert.Equal(t, h.f.Name, test.f, fmt.Sprintf("test %d", i))
+		w := httptest.NewRecorder()
+		w.Code = http.StatusOK
+		ctx, err := newContext(w, req, nil, "application/json", "utf-8")
+		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		if err != nil {
+			continue
+		}
+		node.handle(instance, ctx)
+		assert.Equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %d", i, w.Code))
+		assert.Equal(t, w.Body.String(), test.responseBody, fmt.Sprintf("test %d", i))
+		assert.Equal(t, s.last["method"], test.fname, fmt.Sprintf("test %d", i))
+		assert.Equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
 	}
-	assert.NotEqual(t, s.FNode.innerFakeNode, nil)
-	assert.NotEqual(t, s.Node.innerFakeNode, nil)
+}
+
+func TestStreamingNodeHandle(t *testing.T) {
+	type Test struct {
+		f           reflect.Method
+		end         string
+		requestType reflect.Type
+		requestBody string
+
+		code   int
+		method string
+		input  string
+	}
+	s := new(FakeStreaming)
+	s.last = make(map[string]string)
+	instance := reflect.ValueOf(s).Elem()
+	instanceType := instance.Type()
+	ni, ok := instanceType.MethodByName("NoInput")
+	if !ok {
+		t.Fatal("no NoInput")
+	}
+	i, ok := instanceType.MethodByName("Input")
+	if !ok {
+		t.Fatal("no Input")
+	}
+
+	var tests = []Test{
+		{ni, "", nil, "", http.StatusOK, "NoInput", ""},
+		{i, "\n", reflect.TypeOf(""), "\"input\"", http.StatusOK, "Input", "input"},
+	}
+	for i, test := range tests {
+		sn := &streamingNode{
+			funcIndex:   test.f.Index,
+			end:         test.end,
+			requestType: test.requestType,
+		}
+		buf := bytes.NewBufferString(test.requestBody)
+		req, err := http.NewRequest("GET", "http://fake.domain", buf)
+		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		if err != nil {
+			continue
+		}
+		h := newHijacker()
+		ctx, err := newContext(h, req, nil, "application/json", "utf-8")
+		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		if err != nil {
+			continue
+		}
+		sn.handle(instance, ctx)
+		assert.Equal(t, h.code, test.code, fmt.Sprintf("test %d code: %d", i, h.code))
+		assert.Equal(t, s.last["method"], test.f.Name, fmt.Sprintf("test %d", i))
+		assert.Equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
+	}
 }

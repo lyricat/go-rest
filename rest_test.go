@@ -5,20 +5,41 @@ import (
 	"fmt"
 	"github.com/stretchrcom/testify/assert"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 )
 
+type FakeNode_ struct {
+	formatter    pathFormatter
+	lastInstance reflect.Value
+	lastCtx      *context
+}
+
+func (n *FakeNode_) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+	n.formatter = formatter
+	return []handler{&FakeHandler{n}}, []pathFormatter{formatter}, nil
+}
+
+type FakeHandler struct {
+	node *FakeNode_
+}
+
+func (h *FakeHandler) handle(instance reflect.Value, ctx *context) {
+	h.node.lastInstance = instance
+	h.node.lastCtx = ctx
+}
+
 type TestDefault struct {
 	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 
-	Default FakeNode `path:"/default" method:"METHOD" other:"other"`
+	Default FakeNode_ `path:"/default" method:"METHOD" other:"other"`
 }
 
 func (s TestDefault) HandleDefault() {}
 
 type TestFunc struct {
-	Func FakeNode `path:"/func" method:"METHOD" func:"FuncHandler"`
+	Func FakeNode_ `path:"/func" method:"METHOD" func:"FuncHandler"`
 
 	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 }
@@ -28,13 +49,13 @@ func (s TestFunc) FuncHandler() {}
 type TestNoMethod struct {
 	Service
 
-	NoMethod FakeNode `path:"/no/method"`
+	NoMethod FakeNode_ `path:"/no/method"`
 }
 
 type TestNoPath struct {
 	Service
 
-	NoMethod FakeNode `method:"METHOD"`
+	NoMethod FakeNode_ `method:"METHOD"`
 }
 
 type TestNoService struct{}
@@ -54,7 +75,7 @@ func TestNewRest(t *testing.T) {
 	}
 	var tests = []Test{
 		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", "HandleDefault", `path:"/default" method:"METHOD" other:"other"`},
-		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/default", "FuncHandler", `path:"/func" method:"METHOD" func:"FuncHandler"`},
+		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/func", "FuncHandler", `path:"/func" method:"METHOD" func:"FuncHandler"`},
 		{new(TestNoService), false, 0, "", "", "", "", "", ""},
 		{new(TestNoMethod), false, 0, "", "", "", "", "", ""},
 		{new(TestNoPath), false, 0, "", "", "", "", "", ""},
@@ -65,25 +86,23 @@ func TestNewRest(t *testing.T) {
 		if err != nil || !test.ok {
 			continue
 		}
-		assert.Equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %i"), i)
-		assert.Equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %i"), i)
-		assert.Equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %i"), i)
-		node, ok := r.router.Routes[0].Dest.(*innerFakeNode)
+		assert.Equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %d"), i)
+		assert.Equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %d"), i)
+		assert.Equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %d"), i)
+		handler, ok := r.router.Routes[0].Dest.(*FakeHandler)
 		if !ok {
-			fmt.Errorf("node not innerFakeNode")
+			fmt.Errorf("handler not *FakeHandler")
 			continue
 		}
-		assert.Equal(t, node.formatter, test.formatter, fmt.Sprintf("test %i", i))
-		assert.Equal(t, node.f.Type.Name(), test.f, fmt.Sprintf("test %i", i))
-		assert.Equal(t, node.tag, test.tag, fmt.Sprintf("test %i", i))
+		assert.Equal(t, handler.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
 	}
 }
 
 type TestPost struct {
 	Service `prefix:"/prefix"`
 
-	Node   FakeNode `method:"POST" path:"/node"`
-	NodeId FakeNode `method:"GET" path:"/node/:id" func:"HandleNode"`
+	Node   FakeNode_ `method:"POST" path:"/node"`
+	NodeId FakeNode_ `method:"GET" path:"/node/:id" func:"HandleNode"`
 }
 
 func (r TestPost) HandleNode() {}
@@ -94,7 +113,7 @@ func TestRestServeHTTP(t *testing.T) {
 		url    string
 
 		code      int
-		node      *FakeNode
+		node      *FakeNode_
 		formatter pathFormatter
 		vars      map[string]string
 	}
@@ -117,16 +136,17 @@ func TestRestServeHTTP(t *testing.T) {
 		if err != nil {
 			t.Fatalf("test %d create request failed", i, err)
 		}
-		w := newWriter()
+		w := httptest.NewRecorder()
+		w.Code = http.StatusOK
 		rest.ServeHTTP(w, req)
-		assert.Equal(t, w.code, test.code, fmt.Sprintf("test %d code: %s", i, w.code))
-		if w.code != http.StatusOK {
+		assert.Equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %s", i, w.Code))
+		if w.Code != http.StatusOK {
 			continue
 		}
-		assert.Equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %i", i))
-		assert.Equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %i", i))
+		assert.Equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
+		assert.Equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %d", i))
 
 		service := test.node.lastInstance.Field(0).Interface().(Service)
-		assert.Equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %i", i))
+		assert.Equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %d", i))
 	}
 }

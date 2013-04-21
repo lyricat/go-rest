@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 )
 
@@ -26,13 +25,9 @@ Valid tag:
  - path: Define the path of http request.
  - func: Define the corresponding function name.
  - mime: Define the default mime of request's and response's body. It overwrite the service one.
-
-To be implement:
- - charset: Define the default charset of request's and response's body. It overwrite the service one.
- - scope: Define required scope when process.
 */
 type Processor struct {
-	*innerProcessor
+	formatter pathFormatter
 }
 
 // Generate the path of url to processor. Map args fill parameters in path.
@@ -45,58 +40,34 @@ func (p Processor) Path(args ...string) string {
 	return p.formatter.path(args...)
 }
 
-type innerProcessor struct {
-	formatter    pathFormatter
-	requestType  reflect.Type
-	responseType reflect.Type
-	funcIndex    int
-}
+func (p *Processor) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+	fname := tag.Get("func")
+	if fname == "" {
+		fname = "Handle" + name
+	}
+	f, ok := instance.MethodByName(fname)
+	if !ok {
+		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
+	}
 
-func (i *innerProcessor) init(formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
 	ft := f.Type
+	ret := new(processorNode)
+	ret.funcIndex = f.Index
 	if ft.NumIn() > 2 {
-		return fmt.Errorf("processer(%s) input parameters should be no more than 2.", f.Name)
+		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", f.Name)
 	}
 	if ft.NumIn() == 2 {
-		i.requestType = ft.In(1)
+		ret.requestType = ft.In(1)
 	}
 
 	if ft.NumOut() > 1 {
-		return fmt.Errorf("processor(%s) return should be no more than 1 value.", f.Name)
+		return nil, nil, fmt.Errorf("processor(%s) return should be no more than 1 value.", f.Name)
 	}
 	if ft.NumOut() == 1 {
-		i.responseType = ft.Out(0)
+		ret.responseType = ft.Out(0)
 	}
 
-	i.formatter = formatter
-	i.funcIndex = f.Index
+	p.formatter = formatter
 
-	return nil
-}
-
-func (i *innerProcessor) handle(instance reflect.Value, ctx *context) {
-	r := ctx.request
-	w := ctx.responseWriter
-	marshaller := ctx.marshaller
-	f := instance.Method(i.funcIndex)
-	var args []reflect.Value
-
-	if i.requestType != nil {
-		request := reflect.New(i.requestType)
-		err := marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		args = append(args, request.Elem())
-	}
-	ret := f.Call(args)
-
-	if !ctx.isError && len(ret) > 0 {
-		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
-		err := marshaller.Marshal(w, ret[0].Interface())
-		if err != nil {
-			w.Write([]byte(err.Error()))
-		}
-	}
+	return []handler{ret}, []pathFormatter{formatter}, nil
 }

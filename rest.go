@@ -133,9 +133,7 @@ func New(s interface{}) (*Rest, error) {
 	router := new(urlrouter.Router)
 
 	instance := reflect.ValueOf(s)
-	if instance.Kind() == reflect.Ptr {
-		instance = instance.Elem()
-	}
+	instance = reflect.Indirect(instance)
 	t := instance.Type()
 	serviceIndex, prefix, mime, charset := -1, "", "", ""
 	for i, n := 0, instance.NumField(); i < n; i++ {
@@ -152,18 +150,39 @@ func New(s interface{}) (*Rest, error) {
 		return nil, fmt.Errorf("%s doesn't contain rest.Service field.", t.Name())
 	}
 	for i, n := 0, instance.NumField(); i < n; i++ {
-		handler := instance.Field(i)
-		node, formatter, err := newNode(instance.Type(), handler, prefix, t.Field(i))
-		if err == invalidHandler {
+		node_ := instance.Field(i)
+		field := t.Field(i)
+		if !node_.CanAddr() {
 			continue
 		}
+		if first := field.Name[0]; !('A' <= first && first <= 'Z') {
+			continue
+		}
+		pNode, ok := node_.Addr().Interface().(node)
+		if !ok {
+			continue
+		}
+
+		path := field.Tag.Get("path")
+		if path == "" {
+			return nil, fmt.Errorf("%s node's tag must contain path", field.Name)
+		}
+		method := field.Tag.Get("method")
+		if method == "" {
+			return nil, fmt.Errorf("%s node's tag must contain method", field.Name)
+		}
+
+		formatter := pathToFormatter(prefix, path)
+		handlers, paths, err := pNode.init(formatter, t, field.Name, field.Tag)
 		if err != nil {
 			return nil, err
 		}
-		router.Routes = append(router.Routes, urlrouter.Route{
-			PathExp: fmt.Sprintf("/%s/%s", node.method, formatter),
-			Dest:    node,
-		})
+		for i := range handlers {
+			router.Routes = append(router.Routes, urlrouter.Route{
+				PathExp: fmt.Sprintf("/%s/%s", method, paths[i]),
+				Dest:    handlers[i],
+			})
+		}
 	}
 
 	err := router.Start()
@@ -197,7 +216,7 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.URL.Path = path
 
-	node := dest.Dest.(*node)
+	handler := dest.Dest.(handler)
 
 	ctx, err := newContext(w, r, vars, re.defaultMime, re.defaultCharset)
 	if err != nil {
@@ -210,5 +229,5 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	service := v.Field(re.serviceIndex).Interface().(Service)
 	service.ctx = ctx
 
-	node.handler.handle(re.instance, ctx)
+	handler.handle(re.instance, ctx)
 }

@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 )
@@ -49,61 +50,93 @@ func (f pathFormatter) path(params ...string) string {
 	return f.pathMap(m)
 }
 
-type handlerInterface interface {
-	init(formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error
+type node interface {
+	init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error)
+}
+
+type handler interface {
 	handle(instance reflect.Value, ctx *context)
 }
 
-type node struct {
-	handler handlerInterface
-	method  string
+type processorNode struct {
+	funcIndex    int
+	requestType  reflect.Type
+	responseType reflect.Type
 }
 
-func newNode(instanceType reflect.Type, handler reflect.Value, prefix string, nodeType reflect.StructField) (*node, pathFormatter, error) {
-	if handler.Kind() != reflect.Struct {
-		return nil, "", invalidHandler
+func (n *processorNode) handle(instance reflect.Value, ctx *context) {
+	r := ctx.request
+	w := ctx.responseWriter
+	marshaller := ctx.marshaller
+	f := instance.Method(n.funcIndex)
+	var args []reflect.Value
+
+	if n.requestType != nil {
+		request := reflect.New(n.requestType)
+		err := marshaller.Unmarshal(r.Body, request.Interface())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		args = append(args, request.Elem())
+	}
+	ret := f.Call(args)
+
+	if !ctx.isError && len(ret) > 0 {
+		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
+		err := marshaller.Marshal(w, ret[0].Interface())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+type streamingNode struct {
+	funcIndex   int
+	end         string
+	requestType reflect.Type
+}
+
+func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
+	r := ctx.request
+	w := ctx.responseWriter
+	f := instance.Method(n.funcIndex)
+	marshaller := ctx.marshaller
+
+	var request reflect.Value
+	if n.requestType != nil {
+		request = reflect.New(n.requestType)
+		err := marshaller.Unmarshal(r.Body, request.Interface())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		request = reflect.Indirect(request)
 	}
 
-	innerValue := handler.Field(0)
-	if innerValue.Kind() != reflect.Ptr {
-		return nil, "", invalidHandler
-	}
-
-	_, ok := handler.Field(0).Interface().(handlerInterface)
+	hj, ok := w.(http.Hijacker)
 	if !ok {
-		return nil, "", invalidHandler
+		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+		return
 	}
-	innerType := innerValue.Type().Elem()
-	handler.Field(0).Set(reflect.New(innerType))
-	h := handler.Field(0).Interface().(handlerInterface)
-
-	method := nodeType.Tag.Get("method")
-	if method == "" {
-		return nil, "", fmt.Errorf("%s node's tag must contain method", nodeType.Name)
-	}
-
-	pathStr := nodeType.Tag.Get("path")
-	if pathStr == "" {
-		return nil, "", fmt.Errorf("%s node's tag must contain path", nodeType.Name)
-	}
-	formatter := pathToFormatter(prefix, pathStr)
-
-	funcName := nodeType.Tag.Get("func")
-	if funcName == "" {
-		funcName = "Handle" + nodeType.Name
-	}
-	f, ok := instanceType.MethodByName(funcName)
-	if !ok {
-		return nil, "", fmt.Errorf("%s can't find method with name %s", instanceType.Name(), funcName)
-	}
-
-	err := h.init(formatter, f, nodeType.Tag)
+	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		return nil, "", fmt.Errorf("can't init node %s: %s", nodeType.Name, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer conn.Close()
+
+	stream := newStream(ctx, conn, bufrw, n.end)
+	ctx.headerWriter = stream
+
+	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
+	if n.requestType != nil {
+		args = append(args, request)
 	}
 
-	return &node{
-		handler: h,
-		method:  method,
-	}, formatter, nil
+	ctx.responseWriter.Header().Set("Connection", "keep-alive")
+	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+
+	f.Call(args)
 }

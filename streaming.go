@@ -93,13 +93,9 @@ Valid tag:
  - func: Define the get-identity function, which signature like func() string.
  - mime: Define the default mime of request's and response's body. It overwrite the service one.
  - end: Define the end of one data when streaming working.
-
-To be implement:
- - charset: Define the default charset of request's and response's body. It overwrite the service one.
- - scope: Define required scope when process.
 */
 type Streaming struct {
-	*innerStreaming
+	formatter pathFormatter
 }
 
 // Generate the path of url to processor. Map args fill parameters in path.
@@ -112,71 +108,35 @@ func (p Streaming) Path(args ...string) string {
 	return p.formatter.path(args...)
 }
 
-type innerStreaming struct {
-	formatter    pathFormatter
-	requestType  reflect.Type
-	responseType reflect.Type
-	funcIndex    int
-	end          string
-}
+func (p *Streaming) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+	fname := tag.Get("func")
+	if fname == "" {
+		fname = "Handle" + name
+	}
+	f, ok := instance.MethodByName(fname)
+	if !ok {
+		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
+	}
 
-func (i *innerStreaming) init(formatter pathFormatter, f reflect.Method, tag reflect.StructTag) error {
 	ft := f.Type
+	ret := new(streamingNode)
+	ret.funcIndex = f.Index
 	if ft.NumIn() > 3 || ft.NumIn() < 2 {
-		return fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", f.Name)
+		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", f.Name)
 	}
 	if ft.In(1).String() != "rest.Stream" {
-		return fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", f.Name)
+		return nil, nil, fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", f.Name)
 	}
 	if ft.NumIn() == 3 {
-		i.requestType = ft.In(2)
+		ret.requestType = ft.In(2)
 	}
 
 	if ft.NumOut() > 0 {
-		return fmt.Errorf("streaming(%s) return should no return.", f.Name)
+		return nil, nil, fmt.Errorf("streaming(%s) return should no return.", f.Name)
 	}
 
-	i.formatter = formatter
-	i.funcIndex = f.Index
-	i.end = tag.Get("end")
+	ret.end = tag.Get("end")
+	p.formatter = formatter
 
-	return nil
-}
-
-func (i *innerStreaming) handle(instance reflect.Value, ctx *context) {
-	r := ctx.request
-	w := ctx.responseWriter
-	f := instance.Method(i.funcIndex)
-	marshaller := ctx.marshaller
-
-	hj, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
-		return
-	}
-	conn, bufrw, err := hj.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer conn.Close()
-
-	stream := newStream(ctx, conn, bufrw, i.end)
-	ctx.headerWriter = stream
-
-	args := []reflect.Value{reflect.ValueOf(*stream)}
-	if i.requestType != nil {
-		request := reflect.New(i.requestType)
-		err := marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		args = append(args, request.Elem())
-	}
-
-	ctx.responseWriter.Header().Set("Connection", "keep-alive")
-	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
-
-	f.Call(args)
+	return []handler{ret}, []pathFormatter{formatter}, nil
 }
