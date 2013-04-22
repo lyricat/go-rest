@@ -21,8 +21,11 @@ func TestMapFormatter(t *testing.T) {
 	var tests = []Test{
 		{"/", "path", nil, "/path", "/path"},
 		{"", "path", nil, "/path", "/path"},
+		{"", "", nil, "/", "/"},
+		{"/prefix", "", nil, "/prefix", "/prefix"},
 		{"prefix", "path", nil, "/prefix/path", "/prefix/path"},
 		{"/prefix", "/path", nil, "/prefix/path", "/prefix/path"},
+		{"/prefix/", "/path", nil, "/prefix/path", "/prefix/path"},
 		{"", "/:id", map[string]string{"id": "123"}, "/:id", "/123"},
 		{"", "/:id/:key", map[string]string{"id": "123", "key": "abc"}, "/:id/:key", "/123/abc"},
 	}

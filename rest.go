@@ -163,14 +163,11 @@ func New(s interface{}) (*Rest, error) {
 			continue
 		}
 
-		path := field.Tag.Get("path")
-		if path == "" {
-			return nil, fmt.Errorf("%s node's tag must contain path", field.Name)
-		}
 		method := field.Tag.Get("method")
 		if method == "" {
 			return nil, fmt.Errorf("%s node's tag must contain method", field.Name)
 		}
+		path := field.Tag.Get("path")
 
 		formatter := pathToFormatter(prefix, path)
 		handlers, paths, err := pNode.init(formatter, t, field.Name, field.Tag)

@@ -10,19 +10,19 @@ import (
 	"testing"
 )
 
-type FakeNode_ struct {
+type FakeNode struct {
 	formatter    pathFormatter
 	lastInstance reflect.Value
 	lastCtx      *context
 }
 
-func (n *FakeNode_) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+func (n *FakeNode) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	n.formatter = formatter
 	return []handler{&FakeHandler{n}}, []pathFormatter{formatter}, nil
 }
 
 type FakeHandler struct {
-	node *FakeNode_
+	node *FakeNode
 }
 
 func (h *FakeHandler) handle(instance reflect.Value, ctx *context) {
@@ -33,29 +33,32 @@ func (h *FakeHandler) handle(instance reflect.Value, ctx *context) {
 type TestDefault struct {
 	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 
-	Default FakeNode_ `path:"/default" method:"METHOD" other:"other"`
+	NoMethod FakeNode `path:"/default" method:"METHOD" other:"other"`
 }
 
-func (s TestDefault) HandleDefault() {}
-
 type TestFunc struct {
-	Func FakeNode_ `path:"/func" method:"METHOD" func:"FuncHandler"`
+	NoMethod FakeNode `path:"/func" method:"METHOD" func:"FuncHandler"`
 
 	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 }
 
-func (s TestFunc) FuncHandler() {}
-
 type TestNoMethod struct {
-	Service
+	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 
-	NoMethod FakeNode_ `path:"/no/method"`
+	NoMethod FakeNode `path:"/no/method"`
 }
 
 type TestNoPath struct {
-	Service
+	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
 
-	NoMethod FakeNode_ `method:"METHOD"`
+	NoMethod FakeNode `method:"METHOD"`
+}
+
+type TestSamePath struct {
+	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
+
+	NoMethod1 FakeNode `method:"METHOD"`
+	NoMethod2 FakeNode `method:"METHOD"`
 }
 
 type TestNoService struct{}
@@ -70,15 +73,15 @@ func TestNewRest(t *testing.T) {
 		mime         string
 		charset      string
 		formatter    pathFormatter
-		f            string
 		tag          reflect.StructTag
 	}
 	var tests = []Test{
-		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", "HandleDefault", `path:"/default" method:"METHOD" other:"other"`},
-		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/func", "FuncHandler", `path:"/func" method:"METHOD" func:"FuncHandler"`},
-		{new(TestNoService), false, 0, "", "", "", "", "", ""},
-		{new(TestNoMethod), false, 0, "", "", "", "", "", ""},
-		{new(TestNoPath), false, 0, "", "", "", "", "", ""},
+		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", `path:"/default" method:"METHOD" other:"other"`},
+		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/func", `path:"/func" method:"METHOD" func:"FuncHandler"`},
+		{new(TestNoPath), true, 0, "/prefix", "mime", "charset", "/prefix", `method:"METHOD"`},
+		{new(TestNoService), false, 0, "", "", "", "", ""},
+		{new(TestNoMethod), false, 0, "", "", "", "", ""},
+		{new(TestSamePath), false, 0, "", "", "", "", ""},
 	}
 	for i, test := range tests {
 		r, err := New(test.instance)
@@ -101,8 +104,8 @@ func TestNewRest(t *testing.T) {
 type TestPost struct {
 	Service `prefix:"/prefix"`
 
-	Node   FakeNode_ `method:"POST" path:"/node"`
-	NodeId FakeNode_ `method:"GET" path:"/node/:id" func:"HandleNode"`
+	Node   FakeNode `method:"POST" path:"/node"`
+	NodeId FakeNode `method:"GET" path:"/node/:id" func:"HandleNode"`
 }
 
 func (r TestPost) HandleNode() {}
@@ -113,7 +116,7 @@ func TestRestServeHTTP(t *testing.T) {
 		url    string
 
 		code      int
-		node      *FakeNode_
+		node      *FakeNode
 		formatter pathFormatter
 		vars      map[string]string
 	}

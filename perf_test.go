@@ -15,7 +15,7 @@ var ret = "Hello world."
 type BenchmarkRest struct {
 	Service `prefix:"/prefix"`
 
-	Fake FakeNode_ `method:"GET" path:"/fake/:id" func:"HandleGet"`
+	Fake FakeNode  `method:"GET" path:"/fake/:id" func:"HandleGet"`
 	Get  Processor `method:"GET" path:"/processor/:id"`
 	Post Processor `method:"POST" path:"/processor/:id/post"`
 	Full Processor `method:"POST" path:"/processor/:id/full"`

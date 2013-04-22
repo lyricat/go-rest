@@ -16,11 +16,14 @@ func pathToFormatter(prefix, path string) pathFormatter {
 	if len(prefix) == 0 || prefix[0] != '/' {
 		prefix = "/" + prefix
 	}
-	if l := len(prefix); prefix[l-1] == '/' {
-		prefix = prefix[:l-1]
-	}
-	if path[0] != '/' {
-		path = "/" + path
+	if len(path) > 0 {
+		prefixLast := prefix[len(prefix)-1]
+		if prefixLast != '/' && path[0] != '/' {
+			prefix = prefix + "/"
+		}
+		if prefixLast == '/' && path[0] == '/' {
+			path = path[1:]
+		}
 	}
 	return pathFormatter(prefix + path)
 }
