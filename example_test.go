@@ -1,23 +1,18 @@
-package rest
+package rest_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
+	"github.com/googollee/go-rest"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"testing"
 	"time"
 )
 
 type RestExample struct {
-	Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
+	rest.Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
 
-	CreateHello Processor `method:"POST" path:"/hello"`
-	GetHello    Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
-	Watch       Streaming `method:"GET" path:"/hello/:to/streaming"`
+	CreateHello rest.Processor `method:"POST" path:"/hello"`
+	GetHello    rest.Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
+	Watch       rest.Streaming `method:"GET" path:"/hello/:to/streaming"`
 
 	post  map[string]string
 	watch map[string]chan string
@@ -70,7 +65,7 @@ func (r RestExample) HandleHello() HelloArg {
 //
 // It create a long-live connection and will receive post content "rest is powerful"
 // when running post example.
-func (r RestExample) HandleWatch(s Stream) {
+func (r RestExample) HandleWatch(s rest.Stream) {
 	to := r.Vars()["to"]
 	if to == "" {
 		r.Error(http.StatusBadRequest, fmt.Errorf("need to"))
@@ -91,92 +86,15 @@ func (r RestExample) HandleWatch(s Stream) {
 	}
 }
 
-func TestExample(t *testing.T) {
+func Example() {
 	instance := &RestExample{
 		post:  make(map[string]string),
 		watch: make(map[string]chan string),
 	}
-	rest, err := New(instance)
+	rest, err := rest.New(instance)
 	if err != nil {
-		t.Fatalf("create rest failed: %s", err)
+		panic(err)
 	}
 
-	assert.Equal(t, rest.Prefix(), "/prefix")
-
-	server := httptest.NewServer(rest)
-	server.Close()
-	u, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	go http.ListenAndServe(u.Host, rest)
-
-	resp, err := http.Get(server.URL + "/prefix/hello/rest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	assert.Equal(t, resp.StatusCode, http.StatusNotFound)
-
-	c := make(chan int)
-	go func() {
-		resp, err := http.Get(server.URL + "/prefix/hello/rest/streaming")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-
-		assert.Equal(t, resp.StatusCode, http.StatusOK)
-
-		expect := "\"rest is powerful\"\n"
-		get := make([]byte, len(expect))
-		n, err := resp.Body.Read(get)
-		if err != nil {
-			t.Fatal(err)
-		}
-		get = get[:n]
-		assert.Equal(t, string(get), expect)
-
-		c <- 1
-	}()
-
-	time.Sleep(time.Second / 2) // waiting streaming connected
-
-	arg := HelloArg{
-		To:   "rest",
-		Post: "rest is powerful",
-	}
-	buf := bytes.NewBuffer(nil)
-	encoder := json.NewEncoder(buf)
-	err = encoder.Encode(arg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp, err = http.Post(server.URL+"/prefix/hello", "application/json", buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-
-	select {
-	case <-c:
-	case <-time.After(time.Second):
-		t.Errorf("waiting streaming too long")
-	}
-
-	resp, err = http.Get(server.URL + "/prefix/hello/rest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	assert.Equal(t, resp.StatusCode, http.StatusOK)
-
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&arg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, arg.To, "rest")
-	assert.Equal(t, arg.Post, "rest is powerful")
+	http.ListenAndServe("127.0.0.1:8080", rest)
 }
