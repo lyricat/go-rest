@@ -55,11 +55,6 @@ func (s *Stream) SetDeadline(t time.Time) error {
 	return s.conn.SetDeadline(t)
 }
 
-// SetReadDeadline sets the connection's network read deadlines.
-func (s *Stream) SetReadDeadline(t time.Time) error {
-	return s.conn.SetReadDeadline(t)
-}
-
 // SetWriteDeadline sets the connection's network write deadlines.
 func (s *Stream) SetWriteDeadline(t time.Time) error {
 	return s.conn.SetWriteDeadline(t)

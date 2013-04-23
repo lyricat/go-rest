@@ -29,9 +29,6 @@ type Service struct {
 
 	// Set the service default charset, it will over right charset in tag.
 	DefaultCharset string
-
-	// Plugin can access service.Tag to get the tag informations.
-	Tag reflect.StructTag
 }
 
 // Return the http request instance.
@@ -106,7 +103,6 @@ func initService(service reflect.Value, tag reflect.StructTag) (string, string, 
 		Prefix:         prefix,
 		DefaultMime:    mime,
 		DefaultCharset: charset,
-		Tag:            tag,
 	}))
 	return prefix, mime, charset, nil
 }

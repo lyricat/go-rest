@@ -36,7 +36,6 @@ func TestService(t *testing.T) {
 		assert.Equal(t, service.Prefix, test.prefix, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultMime, test.mime, fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultCharset, test.charset, fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.Tag, test.tag, fmt.Sprintf("test %d", i))
 
 		assert.Equal(t, prefix, test.prefix, fmt.Sprintf("test %d", i))
 		assert.Equal(t, mime, test.mime, fmt.Sprintf("test %d", i))
@@ -59,7 +58,6 @@ func TestService(t *testing.T) {
 		assert.Equal(t, service.Prefix, "/abcde", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultMime, "text/plain", fmt.Sprintf("test %d", i))
 		assert.Equal(t, service.DefaultCharset, "abc", fmt.Sprintf("test %d", i))
-		assert.Equal(t, service.Tag, test.tag, fmt.Sprintf("test %d", i))
 
 		assert.Equal(t, prefix, "/abcde", fmt.Sprintf("test %d", i))
 		assert.Equal(t, mime, "text/plain", fmt.Sprintf("test %d", i))
