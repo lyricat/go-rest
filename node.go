@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
@@ -95,6 +97,35 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	}
 }
 
+type streamingWriter struct {
+	conn         net.Conn
+	bufrw        *bufio.ReadWriter
+	header       http.Header
+	writedHeader bool
+}
+
+func (w *streamingWriter) Write(b []byte) (int, error) {
+	if !w.writedHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.conn.Write(b)
+}
+
+func (w *streamingWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *streamingWriter) WriteHeader(code int) {
+	if w.writedHeader {
+		return
+	}
+	w.bufrw.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
+	w.Header().Write(w.bufrw)
+	w.bufrw.Write([]byte("\r\n"))
+	w.bufrw.Flush()
+	w.writedHeader = true
+}
+
 type streamingNode struct {
 	funcIndex   int
 	end         string
@@ -130,8 +161,14 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 	defer conn.Close()
 
-	stream := newStream(ctx, conn, bufrw, n.end)
-	ctx.headerWriter = stream
+	ctx.responseWriter = &streamingWriter{
+		conn:         conn,
+		bufrw:        bufrw,
+		header:       make(http.Header),
+		writedHeader: false,
+	}
+
+	stream := newStream(ctx, conn, n.end)
 
 	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {

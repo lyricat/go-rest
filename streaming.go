@@ -1,10 +1,8 @@
 package rest
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"net/http"
 	"reflect"
 	"time"
 )
@@ -13,37 +11,26 @@ import (
 Stream  wrap the connection when using streaming.
 */
 type Stream struct {
-	ctx          *context
-	conn         net.Conn
-	bufrw        *bufio.ReadWriter
-	writedHeader *bool
-	end          string
+	ctx  *context
+	conn net.Conn
+	end  string
 }
 
-func newStream(ctx *context, conn net.Conn, bufrw *bufio.ReadWriter, end string) *Stream {
-	writed := false
+func newStream(ctx *context, conn net.Conn, end string) *Stream {
 	return &Stream{
-		ctx:          ctx,
-		conn:         conn,
-		bufrw:        bufrw,
-		end:          end,
-		writedHeader: &writed,
+		ctx:  ctx,
+		conn: conn,
+		end:  end,
 	}
 }
 
 // Write data i as a frame to the connection.
 func (s *Stream) Write(i interface{}) error {
-	s.writeHeader(http.StatusOK)
-
-	err := s.ctx.marshaller.Marshal(s.bufrw, i)
+	err := s.ctx.marshaller.Marshal(s.ctx.responseWriter, i)
 	if err != nil {
 		return err
 	}
-	_, err = s.bufrw.Write([]byte(s.end))
-	if err != nil {
-		return err
-	}
-	err = s.bufrw.Flush()
+	_, err = s.ctx.responseWriter.Write([]byte(s.end))
 	if err != nil {
 		return err
 	}
@@ -58,17 +45,6 @@ func (s *Stream) SetDeadline(t time.Time) error {
 // SetWriteDeadline sets the connection's network write deadlines.
 func (s *Stream) SetWriteDeadline(t time.Time) error {
 	return s.conn.SetWriteDeadline(t)
-}
-
-func (s *Stream) writeHeader(code int) {
-	if *s.writedHeader {
-		return
-	}
-	s.bufrw.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
-	s.ctx.responseWriter.Header().Write(s.bufrw)
-	s.bufrw.Write([]byte("\r\n"))
-	s.bufrw.Flush()
-	*s.writedHeader = true
 }
 
 /*
