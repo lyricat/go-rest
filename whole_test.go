@@ -49,14 +49,10 @@ func (r RestExample) HandleCreateHello(arg HelloArg) {
 // Response:
 //   {"to":"rest","post":"rest is powerful"}
 func (r RestExample) HandleHello() HelloArg {
-	if r.Vars() == nil {
-		r.Error(http.StatusNotFound, fmt.Errorf("%+v", r.Vars()))
-		return HelloArg{}
-	}
 	to := r.Vars()["to"]
 	post, ok := r.post[to]
 	if !ok {
-		r.Error(http.StatusNotFound, fmt.Errorf("can't find hello to %s", to))
+		r.Error(http.StatusNotFound, r.GetError(2, fmt.Sprintf("can't find hello to %s", to)))
 		return HelloArg{}
 	}
 	return HelloArg{
@@ -73,7 +69,7 @@ func (r RestExample) HandleHello() HelloArg {
 func (r RestExample) HandleWatch(s Stream) {
 	to := r.Vars()["to"]
 	if to == "" {
-		r.Error(http.StatusBadRequest, fmt.Errorf("need to"))
+		r.Error(http.StatusBadRequest, r.GetError(3, "need to"))
 		return
 	}
 	r.WriteHeader(http.StatusOK)

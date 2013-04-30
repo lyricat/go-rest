@@ -43,11 +43,7 @@ func (s Service) Vars() map[string]string {
 
 // Write response code and header. Same as http.ResponseWriter.WriteHeader(int)
 func (s Service) WriteHeader(code int) {
-	if s.ctx.headerWriter != nil {
-		s.ctx.headerWriter.writeHeader(code)
-	} else {
-		s.ctx.responseWriter.WriteHeader(code)
-	}
+	s.ctx.responseWriter.WriteHeader(code)
 }
 
 // Get the response header.
@@ -55,9 +51,22 @@ func (s Service) Header() http.Header {
 	return s.ctx.responseWriter.Header()
 }
 
+// Get Default format error, which is like:
+//
+//     type Error struct {
+//         Code    int
+//         Message string
+//     }
+//
+// And it will marshal to special mime-type when calling with Service.Error.
+func (s Service) GetError(code int, message string) error {
+	return s.ctx.marshaller.Error(code, message)
+}
+
 // Error replies to the request with the specified error message and HTTP code.
 func (s Service) Error(code int, err error) {
-	http.Error(s.ctx.responseWriter, err.Error(), code)
+	s.WriteHeader(code)
+	s.ctx.marshaller.Marshal(s.ctx.responseWriter, err)
 	s.ctx.isError = true
 }
 

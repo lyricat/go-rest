@@ -85,10 +85,10 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		}
 		args = append(args, request.Elem())
 	}
+	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
 	ret := f.Call(args)
 
 	if !ctx.isError && len(ret) > 0 {
-		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
 		err := marshaller.Marshal(w, ret[0].Interface())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
