@@ -165,9 +165,9 @@ func TestRealExample(t *testing.T) {
 		response string
 	}
 	var tests = []Test{
-		{"http://domain/prefix/nonexist", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}}, "\n"},
-		{"http://domain/prefix/hello", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}}, "\n"},
-		{"http://domain/prefix/hello", "POST", ``, http.StatusBadRequest, http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}}, "EOF\n"},
+		{"http://domain/prefix/nonexist", "GET", ``, http.StatusNotFound, http.Header{}, ""},
+		{"http://domain/prefix/hello", "GET", ``, http.StatusNotFound, http.Header{}, ""},
+		{"http://domain/prefix/hello", "POST", ``, http.StatusBadRequest, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-1,\"message\":\"marshal request to HelloArg failed: EOF\"}\n"},
 		{"http://domain/prefix/hello", "POST", `{"to":"rest", "post":"rest is powerful"}`, http.StatusOK, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, ""},
 
 		{"http://domain/prefix/hello/abc", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":2,\"message\":\"can't find hello to abc\"}\n"},

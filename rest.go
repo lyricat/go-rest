@@ -208,7 +208,7 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = fmt.Sprintf("/%s/%s", r.Method, path)
 	dest, vars := re.router.FindRouteFromURL(r.URL)
 	if dest == nil {
-		http.Error(w, "", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	r.URL.Path = path

@@ -76,16 +76,18 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	f := instance.Method(n.funcIndex)
 	var args []reflect.Value
 
+	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
+
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := marshaller.Unmarshal(r.Body, request.Interface())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
+			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
 			return
 		}
 		args = append(args, request.Elem())
 	}
-	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
 	ret := f.Call(args)
 
 	if !ctx.isError && len(ret) > 0 {
@@ -138,25 +140,18 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	f := instance.Method(n.funcIndex)
 	marshaller := ctx.marshaller
 
-	var request reflect.Value
-	if n.requestType != nil {
-		request = reflect.New(n.requestType)
-		err := marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		request = reflect.Indirect(request)
-	}
-
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+		w.WriteHeader(http.StatusInternalServerError)
+		marshaller.Marshal(w, marshaller.Error(-2, "webserver doesn't support hijacking"))
 		return
 	}
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+		w.WriteHeader(http.StatusInternalServerError)
+		marshaller.Marshal(w, marshaller.Error(-3, err.Error()))
 		return
 	}
 	defer conn.Close()
@@ -167,8 +162,21 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 		header:       make(http.Header),
 		writedHeader: false,
 	}
+	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
 
 	stream := newStream(ctx, conn, n.end)
+
+	var request reflect.Value
+	if n.requestType != nil {
+		request = reflect.New(n.requestType)
+		err := marshaller.Unmarshal(r.Body, request.Interface())
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
+			return
+		}
+		request = reflect.Indirect(request)
+	}
 
 	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {
@@ -176,7 +184,5 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 
 	ctx.responseWriter.Header().Set("Connection", "keep-alive")
-	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
-
 	f.Call(args)
 }
