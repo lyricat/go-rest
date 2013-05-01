@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchrcom/testify/assert"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -69,7 +70,7 @@ func (r RestExample) HandleHello() HelloArg {
 func (r RestExample) HandleWatch(s Stream) {
 	to := r.Vars()["to"]
 	if to == "" {
-		r.Error(http.StatusBadRequest, r.GetError(3, "need to"))
+		r.Error(http.StatusBadRequest, r.GetError(3, "need 'to' parameter."))
 		return
 	}
 	r.WriteHeader(http.StatusOK)
@@ -84,6 +85,50 @@ func (r RestExample) HandleWatch(s Stream) {
 			delete(r.watch, to)
 			return
 		}
+	}
+}
+
+func TestError(t *testing.T) {
+	type Test struct {
+		url     string
+		method  string
+		request string
+
+		code     int
+		headers  http.Header
+		response string
+	}
+	var tests = []Test{
+		{"http://domain/prefix/nonexist", "GET", ``, http.StatusNotFound, http.Header{}, ""},
+		{"http://domain/prefix/hello", "GET", ``, http.StatusNotFound, http.Header{}, ""},
+		{"http://domain/prefix/hello", "POST", ``, http.StatusBadRequest, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-1,\"message\":\"marshal request to HelloArg failed: EOF\"}\n"},
+		{"http://domain/prefix/hello", "POST", `{"to":"rest", "post":"rest is powerful"}`, http.StatusOK, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, ""},
+
+		{"http://domain/prefix/hello/abc", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":2,\"message\":\"can't find hello to abc\"}\n"},
+		{"http://domain/prefix/hello/rest", "GET", ``, http.StatusOK, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"to\":\"rest\",\"post\":\"rest is powerful\"}\n"},
+
+		{"http://domain/prefix/hello/abc/streaming", "GET", ``, http.StatusInternalServerError, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-2,\"message\":\"webserver doesn't support hijacking\"}\n"},
+	}
+	r, err := New(&RestExample{
+		post:  make(map[string]string),
+		watch: make(map[string]chan string),
+	})
+	if err != nil {
+		t.Fatalf("new rest service failed: %s", err)
+	}
+	assert.Equal(t, r.Prefix(), "/prefix")
+	for i, test := range tests {
+		buf := bytes.NewBufferString(test.request)
+		req, err := http.NewRequest(test.method, test.url, buf)
+		if err != nil {
+			t.Fatalf("can't create request of test %d: %s", i, err)
+		}
+		resp := httptest.NewRecorder()
+		resp.Code = http.StatusOK
+		r.ServeHTTP(resp, req)
+		assert.Equal(t, resp.Code, test.code, "test %d", i)
+		assert.Equal(t, resp.Body.String(), test.response, "test %d", i)
+		assert.Equal(t, resp.HeaderMap, test.headers, "test %d", i)
 	}
 }
 
@@ -116,7 +161,21 @@ func TestExample(t *testing.T) {
 
 	c := make(chan int)
 	go func() {
-		resp, err := http.Get(server.URL + "/prefix/hello/rest/streaming")
+		resp, err := http.Get(server.URL + "/prefix/hello//streaming")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		assert.Equal(t, resp.StatusCode, http.StatusBadRequest)
+		assert.Equal(t, resp.Header, http.Header{"Connection": []string{"keep-alive"}, "Content-Type": []string{"application/json; charset=utf-8"}})
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, string(body), "{\"code\":3,\"message\":\"need 'to' parameter.\"}\n")
+
+		resp, err = http.Get(server.URL + "/prefix/hello/rest/streaming")
 		if err != nil {
 			t.Fatal(err)
 		}
