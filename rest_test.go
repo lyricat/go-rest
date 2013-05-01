@@ -172,6 +172,8 @@ func TestRealExample(t *testing.T) {
 
 		{"http://domain/prefix/hello/abc", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":2,\"message\":\"can't find hello to abc\"}\n"},
 		{"http://domain/prefix/hello/rest", "GET", ``, http.StatusOK, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"to\":\"rest\",\"post\":\"rest is powerful\"}\n"},
+
+		{"http://domain/prefix/hello/abc/streaming", "GET", ``, http.StatusInternalServerError, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-2,\"message\":\"webserver doesn't support hijacking\"}\n"},
 	}
 	r, err := New(&RestExample{
 		post:  make(map[string]string),
