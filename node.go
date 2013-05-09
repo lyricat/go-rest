@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -91,9 +92,24 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	ret := f.Call(args)
 
 	if !ctx.isError && len(ret) > 0 {
-		err := marshaller.Marshal(w, ret[0].Interface())
+		var writer io.Writer = w
+		if ctx.compresser != nil {
+			w.Header().Set("Content-Encoding", ctx.compresser.Name())
+			var err error
+			c, err := ctx.compresser.Writer(writer)
+			defer c.Close()
+			writer = c
+			if err != nil {
+				delete(w.Header(), "Content-Encoding")
+				w.WriteHeader(http.StatusInternalServerError)
+				marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("create compresser %s failed: %s", ctx.compresser.Name(), err)))
+				return
+			}
+		}
+		err := marshaller.Marshal(writer, ret[0].Interface())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal response to %s failed: %s", err)))
 			return
 		}
 	}
@@ -103,6 +119,8 @@ type streamingWriter struct {
 	conn         net.Conn
 	bufrw        *bufio.ReadWriter
 	header       http.Header
+	compresser   Compresser
+	writer       io.Writer
 	writedHeader bool
 }
 
@@ -110,7 +128,7 @@ func (w *streamingWriter) Write(b []byte) (int, error) {
 	if !w.writedHeader {
 		w.WriteHeader(http.StatusOK)
 	}
-	return w.conn.Write(b)
+	return w.writer.Write(b)
 }
 
 func (w *streamingWriter) Header() http.Header {
@@ -120,6 +138,9 @@ func (w *streamingWriter) Header() http.Header {
 func (w *streamingWriter) WriteHeader(code int) {
 	if w.writedHeader {
 		return
+	}
+	if w.compresser != nil {
+		w.header.Set("Content-Encoding", w.compresser.Name())
 	}
 	w.bufrw.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
 	w.Header().Write(w.bufrw)
@@ -156,10 +177,24 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 	defer conn.Close()
 
+	var writer io.Writer = conn
+	if ctx.compresser != nil {
+		c, err := ctx.compresser.Writer(writer)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("create compresser %s failed: %s", ctx.compresser.Name(), err)))
+			return
+		}
+		defer c.Close()
+		writer = c
+	}
+
 	ctx.responseWriter = &streamingWriter{
 		conn:         conn,
 		bufrw:        bufrw,
 		header:       make(http.Header),
+		compresser:   ctx.compresser,
+		writer:       writer,
 		writedHeader: false,
 	}
 	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))

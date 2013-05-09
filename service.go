@@ -11,11 +11,12 @@ Define the service.
 Valid tag:
 
  - prefix: The prefix path of http request. All processor's path will prefix with prefix path.
+ - mime: Define the default mime of all processor in this service.
+ - compress: If value is "on", it will compress response using "Accept-Encoding" in request header.
 
 The priority of value is: value in Service, value in tag, default.
 
 To be implement:
- - mime: Define the default mime of all processor in this service.
  - charset: Define the default charset of all processor in this service.
 */
 type Service struct {

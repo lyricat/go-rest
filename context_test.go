@@ -12,9 +12,16 @@ func TestNewContext(t *testing.T) {
 	if !ok {
 		t.Fatalf("can't find json marshaller")
 	}
+	flate, ok := getCompresser("deflate")
+	if !ok {
+		t.Fatalf("can't find deflate compresser")
+	}
+	gzip, ok := getCompresser("gzip")
+	if !ok {
+		t.Fatalf("can't find gzip compresser")
+	}
 	type Test struct {
-		accept         string
-		acceptCharset  string
+		headers        map[string]string
 		w              http.ResponseWriter
 		defaultMime    string
 		defaultCharset string
@@ -23,25 +30,29 @@ func TestNewContext(t *testing.T) {
 		mime       string
 		charset    string
 		marshaller Marshaller
+		compresser Compresser
 		response   http.ResponseWriter
 	}
 	var tests = []Test{
-		{"application/json", "utf-8", nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil},
-		{"application/json", "utf-8", nil, "application/xml", "gbk", true, "application/json", "utf-8", json, nil},
-		{"", "", nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil},
-		{"appplication/unknown", "utf-8", nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil},
-		{"appplication/unknown", "utf-8", nil, "application/unknow", "utf-8", false, "", "", nil, nil},
+		{map[string]string{"Accept": "application/json", "Accept-Charset": "utf-8"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil, nil},
+		{map[string]string{"Accept": "application/json", "Accept-Charset": "utf-8"}, nil, "application/xml", "gbk", true, "application/json", "utf-8", json, nil, nil},
+		{nil, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil, nil},
+		{map[string]string{"Accept": "application/unknown", "Accept-Charset": "utf-8"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil, nil},
+		{map[string]string{"Accept": "application/unknown", "Accept-Charset": "utf-8"}, nil, "application/unknow", "utf-8", false, "", "", nil, nil, nil},
+
+		{map[string]string{"Accept-Encoding": "gzip"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, gzip, nil},
+		{map[string]string{"Accept-Encoding": "deflate"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, flate, nil},
+		{map[string]string{"Accept-Encoding": "gzip, deflate"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, gzip, nil},
+		{map[string]string{"Accept-Encoding": "unknown, gzip"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, gzip, nil},
+		{map[string]string{"Accept-Encoding": "unknown"}, nil, "application/json", "utf-8", true, "application/json", "utf-8", json, nil, nil},
 	}
 	for i, test := range tests {
 		req, err := http.NewRequest("GET", "/", nil)
 		if err != nil {
 			t.Fatal("invalid request")
 		}
-		if test.accept != "" {
-			req.Header.Set("Accept", test.accept)
-		}
-		if test.acceptCharset != "" {
-			req.Header.Set("Accept-Charset", test.acceptCharset)
+		for k, v := range test.headers {
+			req.Header.Set(k, v)
 		}
 		ctx, err := newContext(test.w, req, nil, test.defaultMime, test.defaultCharset)
 		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))

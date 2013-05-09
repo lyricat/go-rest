@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	// "net/url"
 	"testing"
 	"time"
 )
@@ -77,7 +77,12 @@ func (r RestExample) HandleWatch(s Stream) {
 	c := make(chan string)
 	r.watch[to] = c
 	for {
-		post := <-c
+		var post interface{}
+		select {
+		case <-time.After(time.Second):
+			return
+		case post = <-c:
+		}
 		s.SetDeadline(time.Now().Add(time.Second))
 		err := s.Write(post)
 		if err != nil {
@@ -145,12 +150,9 @@ func TestExample(t *testing.T) {
 	assert.Equal(t, rest.Prefix(), "/prefix")
 
 	server := httptest.NewServer(rest)
-	server.Close()
-	u, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	go http.ListenAndServe(u.Host, rest)
+	defer func() {
+		server.Close()
+	}()
 
 	resp, err := http.Get(server.URL + "/prefix/hello/rest")
 	if err != nil {
@@ -234,4 +236,65 @@ func TestExample(t *testing.T) {
 	}
 	assert.Equal(t, arg.To, "rest")
 	assert.Equal(t, arg.Post, "rest is powerful")
+}
+
+type CompressExample struct {
+	Service `compress:"on"`
+
+	P Processor `path:"/p" method:"POST"`
+	S Streaming `path:"/s" method:"GET"`
+}
+
+func (c CompressExample) HandleP() string {
+	return "Hello"
+}
+
+func (c CompressExample) HandleS(s Stream) {
+	s.Write("Hello")
+}
+
+func TestCompress(t *testing.T) {
+	rest, err := New(new(CompressExample))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(rest)
+	defer server.Close()
+
+	req, err := http.NewRequest("POST", server.URL+"/p", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, resp.Header.Get("Content-Encoding"), "gzip")
+	assert.Equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
+
+	req, err = http.NewRequest("GET", server.URL+"/s", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	b, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, resp.Header.Get("Content-Encoding"), "gzip")
+	assert.Equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
 }

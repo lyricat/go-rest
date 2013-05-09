@@ -120,6 +120,7 @@ type Rest struct {
 	serviceIndex   int
 	router         *urlrouter.Router
 	prefix         string
+	needCompress   bool
 	defaultMime    string
 	defaultCharset string
 }
@@ -132,6 +133,7 @@ func New(s interface{}) (*Rest, error) {
 	instance = reflect.Indirect(instance)
 	t := instance.Type()
 	serviceIndex, prefix, mime, charset := -1, "", "", ""
+	needCompress := false
 	for i, n := 0, instance.NumField(); i < n; i++ {
 		field := instance.Field(i)
 		if field.Type().String() == "rest.Service" {
@@ -140,6 +142,7 @@ func New(s interface{}) (*Rest, error) {
 				return nil, err
 			}
 			serviceIndex, prefix, mime, charset = i, p, m, c
+			needCompress = t.Field(i).Tag.Get("compress") == "on"
 		}
 	}
 	if serviceIndex < 0 {
@@ -188,6 +191,7 @@ func New(s interface{}) (*Rest, error) {
 		serviceIndex:   serviceIndex,
 		router:         router,
 		prefix:         prefix,
+		needCompress:   needCompress,
 		defaultMime:    mime,
 		defaultCharset: charset,
 	}, nil
@@ -210,6 +214,10 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = path
 
 	handler := dest.Dest.(handler)
+
+	if !re.needCompress {
+		delete(r.Header, "Accept-Encoding")
+	}
 
 	ctx, err := newContext(w, r, vars, re.defaultMime, re.defaultCharset)
 	if err != nil {

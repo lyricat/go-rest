@@ -14,6 +14,7 @@ type context struct {
 	mime           string
 	charset        string
 	marshaller     Marshaller
+	compresser     Compresser
 	vars           map[string]string
 	request        *http.Request
 	responseWriter http.ResponseWriter
@@ -43,10 +44,23 @@ func newContext(w http.ResponseWriter, r *http.Request, vars map[string]string, 
 		return nil, fmt.Errorf("can't find %s marshaller", mime)
 	}
 
+	encoding := r.Header.Get("Accept-Encoding")
+	var compresser Compresser
+	if encoding != "" {
+		for _, name := range strings.Split(encoding, ",") {
+			name = strings.Trim(name, " ")
+			if c, ok := getCompresser(name); ok {
+				compresser = c
+				break
+			}
+		}
+	}
+
 	return &context{
 		mime:           mime,
 		charset:        charset,
 		marshaller:     marshaller,
+		compresser:     compresser,
 		vars:           vars,
 		request:        r,
 		responseWriter: w,
