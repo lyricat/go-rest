@@ -225,10 +225,10 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instance := re.instance.Interface()
-	v := reflect.ValueOf(instance)
-	service := v.Field(re.serviceIndex).Interface().(Service)
+	instance := reflect.New(re.instance.Type()).Elem()
+	instance.Set(re.instance)
+	service := instance.Field(re.serviceIndex).Addr().Interface().(*Service)
 	service.ctx = ctx
 
-	handler.handle(re.instance, ctx)
+	handler.handle(instance, ctx)
 }

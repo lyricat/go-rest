@@ -20,8 +20,6 @@ To be implement:
  - charset: Define the default charset of all processor in this service.
 */
 type Service struct {
-	*innerService
-
 	// Set the service prefix path, it will over right prefix in tag.
 	Prefix string
 
@@ -30,6 +28,8 @@ type Service struct {
 
 	// Set the service default charset, it will over right charset in tag.
 	DefaultCharset string
+
+	ctx *context
 }
 
 // Return the http request instance.
@@ -109,14 +109,9 @@ func initService(service reflect.Value, tag reflect.StructTag) (string, string, 
 	}
 
 	service.Set(reflect.ValueOf(Service{
-		innerService:   new(innerService),
 		Prefix:         prefix,
 		DefaultMime:    mime,
 		DefaultCharset: charset,
 	}))
 	return prefix, mime, charset, nil
-}
-
-type innerService struct {
-	ctx *context
 }
