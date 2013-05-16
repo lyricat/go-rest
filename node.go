@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"reflect"
 	"strings"
@@ -64,6 +63,23 @@ type handler interface {
 	handle(instance reflect.Value, ctx *context)
 }
 
+type processorWriter struct {
+	resp   http.ResponseWriter
+	writer io.Writer
+}
+
+func (w *processorWriter) Header() http.Header {
+	return w.resp.Header()
+}
+
+func (w *processorWriter) WriteHeader(code int) {
+	w.resp.WriteHeader(code)
+}
+
+func (w *processorWriter) Write(p []byte) (int, error) {
+	return w.writer.Write(p)
+}
+
 type processorNode struct {
 	funcIndex    int
 	requestType  reflect.Type
@@ -75,16 +91,28 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	w := ctx.responseWriter
 	marshaller := ctx.marshaller
 	f := instance.Method(n.funcIndex)
-	var args []reflect.Value
+	args := make([]reflect.Value, 1, 2)
+	args[0] = reflect.ValueOf(ctx)
 
 	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
+
+	if ctx.compresser != nil {
+		c, err := ctx.compresser.Writer(ctx.responseWriter)
+		if err == nil {
+			defer c.Close()
+			ctx.responseWriter = &processorWriter{
+				resp:   ctx.responseWriter,
+				writer: c,
+			}
+			w.Header().Set("Content-Encoding", ctx.compresser.Name())
+		}
+	}
 
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := marshaller.Unmarshal(r.Body, request.Interface())
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
+			ctx.Error(http.StatusBadRequest, -1, "marshal request to %s failed: %s", n.requestType.Name(), err)
 			return
 		}
 		args = append(args, request.Elem())
@@ -92,31 +120,15 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	ret := f.Call(args)
 
 	if !ctx.isError && len(ret) > 0 {
-		var writer io.Writer = w
-		if ctx.compresser != nil {
-			w.Header().Set("Content-Encoding", ctx.compresser.Name())
-			var err error
-			c, err := ctx.compresser.Writer(writer)
-			defer c.Close()
-			writer = c
-			if err != nil {
-				delete(w.Header(), "Content-Encoding")
-				w.WriteHeader(http.StatusInternalServerError)
-				marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("create compresser %s failed: %s", ctx.compresser.Name(), err)))
-				return
-			}
-		}
-		err := marshaller.Marshal(writer, ret[0].Interface())
+		err := marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal response to %s failed: %s", err)))
+			ctx.Error(http.StatusInternalServerError, -1, "marshal response to %s failed: %s", err)
 			return
 		}
 	}
 }
 
 type streamingWriter struct {
-	conn         net.Conn
 	bufrw        *bufio.ReadWriter
 	header       http.Header
 	compresser   Compresser
@@ -161,18 +173,27 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	f := instance.Method(n.funcIndex)
 	marshaller := ctx.marshaller
 
+	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+
+	var request reflect.Value
+	if n.requestType != nil {
+		request = reflect.New(n.requestType)
+		err := marshaller.Unmarshal(r.Body, request.Interface())
+		if err != nil {
+			ctx.Error(http.StatusBadRequest, -1, "marshal request to %s failed: %s", n.requestType.Name(), err)
+			return
+		}
+		request = reflect.Indirect(request)
+	}
+
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
-		w.WriteHeader(http.StatusInternalServerError)
-		marshaller.Marshal(w, marshaller.Error(-2, "webserver doesn't support hijacking"))
+		ctx.Error(http.StatusInternalServerError, -1, "webserver doesn't support hijacking")
 		return
 	}
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
-		w.WriteHeader(http.StatusInternalServerError)
-		marshaller.Marshal(w, marshaller.Error(-3, err.Error()))
+		ctx.Error(http.StatusInternalServerError, -1, "%s", err)
 		return
 	}
 	defer conn.Close()
@@ -181,43 +202,32 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	if ctx.compresser != nil {
 		c, err := ctx.compresser.Writer(writer)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("create compresser %s failed: %s", ctx.compresser.Name(), err)))
+			ctx.Error(http.StatusBadRequest, -1, "create compresser %s failed: %s", ctx.compresser.Name(), err)
 			return
 		}
 		defer c.Close()
 		writer = c
+		w.Header().Set("Content-Encoding", ctx.compresser.Name())
 	}
 
 	ctx.responseWriter = &streamingWriter{
-		conn:         conn,
 		bufrw:        bufrw,
 		header:       make(http.Header),
 		compresser:   ctx.compresser,
 		writer:       writer,
 		writedHeader: false,
 	}
-	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", ctx.mime))
+	for k, v := range w.Header() {
+		ctx.responseWriter.Header()[k] = v
+	}
+	ctx.responseWriter.Header().Set("Connection", "keep-alive")
 
 	stream := newStream(ctx, conn, n.end)
-
-	var request reflect.Value
-	if n.requestType != nil {
-		request = reflect.New(n.requestType)
-		err := marshaller.Unmarshal(r.Body, request.Interface())
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			marshaller.Marshal(w, marshaller.Error(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
-			return
-		}
-		request = reflect.Indirect(request)
-	}
 
 	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {
 		args = append(args, request)
 	}
 
-	ctx.responseWriter.Header().Set("Connection", "keep-alive")
 	f.Call(args)
 }

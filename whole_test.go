@@ -3,12 +3,10 @@ package rest
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/stretchrcom/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	// "net/url"
 	"testing"
 	"time"
 )
@@ -33,7 +31,7 @@ type HelloArg struct {
 // > curl "http://127.0.0.1:8080/prefix/hello" -d '{"to":"rest", "post":"rest is powerful"}'
 //
 // No response
-func (r RestExample) HandleCreateHello(arg HelloArg) {
+func (r RestExample) HandleCreateHello(ctx Context, arg HelloArg) {
 	r.post[arg.To] = arg.Post
 	c, ok := r.watch[arg.To]
 	if ok {
@@ -49,11 +47,11 @@ func (r RestExample) HandleCreateHello(arg HelloArg) {
 //
 // Response:
 //   {"to":"rest","post":"rest is powerful"}
-func (r RestExample) HandleHello() HelloArg {
-	to := r.Vars()["to"]
+func (r RestExample) HandleHello(ctx Context) HelloArg {
+	to := ctx.Vars()["to"]
 	post, ok := r.post[to]
 	if !ok {
-		r.Error(http.StatusNotFound, r.GetError(2, fmt.Sprintf("can't find hello to %s", to)))
+		ctx.Error(http.StatusNotFound, 2, "can't find hello to %s", to)
 		return HelloArg{}
 	}
 	return HelloArg{
@@ -68,12 +66,12 @@ func (r RestExample) HandleHello() HelloArg {
 // It create a long-live connection and will receive post content "rest is powerful"
 // when running post example.
 func (r RestExample) HandleWatch(s Stream) {
-	to := r.Vars()["to"]
+	to := s.Vars()["to"]
 	if to == "" {
-		r.Error(http.StatusBadRequest, r.GetError(3, "need 'to' parameter."))
+		s.Error(http.StatusBadRequest, 3, "need 'to' parameter.")
 		return
 	}
-	r.WriteHeader(http.StatusOK)
+	s.WriteHeader(http.StatusOK)
 	c := make(chan string)
 	r.watch[to] = c
 	for {
@@ -112,7 +110,7 @@ func TestError(t *testing.T) {
 		{"http://domain/prefix/hello/abc", "GET", ``, http.StatusNotFound, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":2,\"message\":\"can't find hello to abc\"}\n"},
 		{"http://domain/prefix/hello/rest", "GET", ``, http.StatusOK, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"to\":\"rest\",\"post\":\"rest is powerful\"}\n"},
 
-		{"http://domain/prefix/hello/abc/streaming", "GET", ``, http.StatusInternalServerError, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-2,\"message\":\"webserver doesn't support hijacking\"}\n"},
+		{"http://domain/prefix/hello/abc/streaming", "GET", ``, http.StatusInternalServerError, http.Header{"Content-Type": []string{"application/json; charset=utf-8"}}, "{\"code\":-1,\"message\":\"webserver doesn't support hijacking\"}\n"},
 	}
 	r, err := New(&RestExample{
 		post:  make(map[string]string),
@@ -245,7 +243,7 @@ type CompressExample struct {
 	S Streaming `path:"/s" method:"GET"`
 }
 
-func (c CompressExample) HandleP() string {
+func (c CompressExample) HandleP(ctx Context) string {
 	return "Hello"
 }
 

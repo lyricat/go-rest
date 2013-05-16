@@ -11,41 +11,41 @@ type FakeProcessor struct {
 	last map[string]string
 }
 
-func (f FakeProcessor) NoInputNoOutput() {
+func (f FakeProcessor) NoInputNoOutput(ctx Context) {
 	f.last["method"] = "NoInputNoOutput"
 	f.last["input"] = ""
 	f.last["output"] = ""
 }
 
-func (f FakeProcessor) NoInput() string {
+func (f FakeProcessor) NoInput(ctx Context) string {
 	f.last["method"] = "NoInput"
 	f.last["input"] = ""
 	f.last["output"] = "output"
 	return "output"
 }
 
-func (f FakeProcessor) NoOutput(post string) {
+func (f FakeProcessor) NoOutput(ctx Context, post string) {
 	f.last["method"] = "NoOutput"
 	f.last["input"] = post
 	f.last["output"] = ""
 }
 
-func (f FakeProcessor) Normal(post string) string {
+func (f FakeProcessor) Normal(ctx Context, post string) string {
 	f.last["method"] = "Normal"
 	f.last["input"] = post
 	f.last["output"] = "output"
 	return "output"
 }
 
-func (f FakeProcessor) HandleNode() {
+func (f FakeProcessor) HandleNode(ctx Context) {
 	f.last["method"] = "HandleNode"
 	f.last["input"] = ""
 	f.last["output"] = ""
 }
 
-func (f FakeProcessor) ErrorInput(a, b int) {}
+func (f FakeProcessor) ErrorInput(ctx Context, a, b int) {}
 
-func (f FakeProcessor) ErrorOutput() (string, string) {
+func (f FakeProcessor) ErrorOutput(ctx Context) (string, string) {
 	return "", ""
 }
 

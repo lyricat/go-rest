@@ -52,12 +52,18 @@ func (p *Processor) init(formatter pathFormatter, instance reflect.Type, name st
 
 	ft := f.Type
 	ret := new(processorNode)
+	if ft.NumIn() < 2 {
+		return nil, nil, fmt.Errorf("processer(%s) input parameters should be more than 1.", f.Name)
+	}
 	ret.funcIndex = f.Index
-	if ft.NumIn() > 2 {
+	if ft.NumIn() > 3 {
 		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", f.Name)
 	}
-	if ft.NumIn() == 2 {
-		ret.requestType = ft.In(1)
+	if ft.In(1).Name() != "Context" {
+		return nil, nil, fmt.Errorf("processor(%s) 1st input parameter should be Context", f.Name)
+	}
+	if ft.NumIn() == 3 {
+		ret.requestType = ft.In(2)
 	}
 
 	if ft.NumOut() > 1 {

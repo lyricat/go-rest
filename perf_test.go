@@ -21,13 +21,13 @@ type BenchmarkRest struct {
 	Full Processor `method:"POST" path:"/processor/:id/full"`
 }
 
-func (r BenchmarkRest) HandleGet() string {
+func (r BenchmarkRest) HandleGet(ctx Context) string {
 	return ret
 }
 
-func (r BenchmarkRest) HandlePost(arg string) {}
+func (r BenchmarkRest) HandlePost(ctx Context, arg string) {}
 
-func (r BenchmarkRest) HandleFull(arg string) string {
+func (r BenchmarkRest) HandleFull(ctx Context, arg string) string {
 	return arg
 }
 
