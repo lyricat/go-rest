@@ -147,7 +147,7 @@ The performance test is in perf_test.go:
 
  - BenchmarkPlainFull: post a string and response a string, without go-rest framework. It use to compare BenchmarkRestFull.
 
-The result in mu mbp list below:
+The result in my mbp list below:
 
 	$ go test -test.bench=Bench*
 	PASS
