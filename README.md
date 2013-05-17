@@ -149,13 +149,16 @@ The performance test is in perf_test.go:
 
 The result in my mbp list below:
 
+	$ go version
+	go version go1.1 darwin/amd64
+	
 	$ go test -test.bench=Bench*
 	PASS
-	BenchmarkHttpServeFull	   10000	    155805 ns/op
-	BenchmarkRestServe	  500000	      5774 ns/op
-	BenchmarkRestGet	  200000	     10496 ns/op
-	BenchmarkRestPost	  200000	     13364 ns/op
-	BenchmarkRestFull	  100000	     14857 ns/op
-	BenchmarkPlainGet	  200000	     10094 ns/op
-	BenchmarkPlainPost	  200000	     10413 ns/op
-	BenchmarkPlainFull	  200000	     10528 ns/op
+	BenchmarkHttpServeFull	   10000	    222218 ns/op
+	BenchmarkRestServe	  500000	      3934 ns/op
+	BenchmarkRestGet	  200000	      7732 ns/op
+	BenchmarkRestPost	  200000	      9599 ns/op
+	BenchmarkRestFull	  200000	     11133 ns/op
+	BenchmarkPlainGet	  200000	      8402 ns/op
+	BenchmarkPlainPost	  200000	      8836 ns/op
+	BenchmarkPlainFull	  200000	      8766 ns/op
