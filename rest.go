@@ -226,6 +226,7 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
 
 	re.ctxField.Set(reflect.ValueOf(ctx))
 
