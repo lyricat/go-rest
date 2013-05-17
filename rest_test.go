@@ -16,7 +16,7 @@ type FakeNode struct {
 	lastCtx      *context
 }
 
-func (n *FakeNode) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+func (n *FakeNode) init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	n.formatter = formatter
 	return []handler{&FakeHandler{n}}, []pathFormatter{formatter}, nil
 }

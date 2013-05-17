@@ -30,28 +30,29 @@ type Processor struct {
 	pathFormatter
 }
 
-func (p *Processor) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+func (p *Processor) init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	fname := tag.Get("func")
 	if fname == "" {
 		fname = "Handle" + name
 	}
-	f, ok := instance.MethodByName(fname)
-	if !ok {
+	f := instance.MethodByName(fname)
+	if !f.IsValid() {
 		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
 	}
 
-	ft := f.Type
-	ret := new(processorNode)
-	ret.funcIndex = f.Index
-	if ft.NumIn() > 2 {
-		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", f.Name)
+	ft := f.Type()
+	ret := &processorNode{
+		f: f,
 	}
-	if ft.NumIn() == 2 {
-		ret.requestType = ft.In(1)
+	if ft.NumIn() > 1 {
+		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", ft.Name())
+	}
+	if ft.NumIn() == 1 {
+		ret.requestType = ft.In(0)
 	}
 
 	if ft.NumOut() > 1 {
-		return nil, nil, fmt.Errorf("processor(%s) return should be no more than 1 value.", f.Name)
+		return nil, nil, fmt.Errorf("processor(%s) return should be no more than 1 value.", ft.Name())
 	}
 	if ft.NumOut() == 1 {
 		ret.responseType = ft.Out(0)

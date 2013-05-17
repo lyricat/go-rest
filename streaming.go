@@ -69,31 +69,32 @@ type Streaming struct {
 	pathFormatter
 }
 
-func (p *Streaming) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+func (p *Streaming) init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	fname := tag.Get("func")
 	if fname == "" {
 		fname = "Handle" + name
 	}
-	f, ok := instance.MethodByName(fname)
-	if !ok {
+	f := instance.MethodByName(fname)
+	if !f.IsValid() {
 		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
 	}
 
-	ft := f.Type
-	ret := new(streamingNode)
-	ret.funcIndex = f.Index
-	if ft.NumIn() > 3 || ft.NumIn() < 2 {
-		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", f.Name)
+	ft := f.Type()
+	ret := &streamingNode{
+		f: f,
 	}
-	if ft.In(1).String() != "rest.Stream" {
-		return nil, nil, fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", f.Name)
+	if ft.NumIn() > 2 || ft.NumIn() < 1 {
+		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", ft.Name())
 	}
-	if ft.NumIn() == 3 {
-		ret.requestType = ft.In(2)
+	if ft.In(0).String() != "rest.Stream" {
+		return nil, nil, fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", ft.Name())
+	}
+	if ft.NumIn() == 2 {
+		ret.requestType = ft.In(1)
 	}
 
 	if ft.NumOut() > 0 {
-		return nil, nil, fmt.Errorf("streaming(%s) return should no return.", f.Name)
+		return nil, nil, fmt.Errorf("streaming(%s) return should no return.", ft.Name())
 	}
 
 	ret.end = tag.Get("end")

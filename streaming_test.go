@@ -87,7 +87,7 @@ func TestStreamingInit(t *testing.T) {
 	}
 	for i, test := range tests {
 		streaming := new(Streaming)
-		handlers, paths, err := streaming.init(test.path, instanceType, test.name, test.tag)
+		handlers, paths, err := streaming.init(test.path, instance, test.name, test.tag)
 		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if !test.ok || err != nil {
 			continue
@@ -101,7 +101,7 @@ func TestStreamingInit(t *testing.T) {
 			t.Errorf("not *streamingNode")
 			continue
 		}
-		assert.Equal(t, sn.funcIndex, test.funcIndex, fmt.Sprintf("test %d", i))
+		assert.Equal(t, sn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", sn.requestType), test.request, fmt.Sprintf("test %d", i))
 		assert.Equal(t, sn.end, test.end, fmt.Sprintf("test %d", i))
 	}

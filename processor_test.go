@@ -102,7 +102,7 @@ func TestProcessorInit(t *testing.T) {
 	}
 	for i, test := range tests {
 		node := new(Processor)
-		handlers, paths, err := node.init(test.path, instance.Type(), test.name, test.tag)
+		handlers, paths, err := node.init(test.path, instance, test.name, test.tag)
 		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if !test.ok || err != nil {
 			continue
@@ -116,7 +116,7 @@ func TestProcessorInit(t *testing.T) {
 			t.Errorf("not *processorNode")
 			continue
 		}
-		assert.Equal(t, pn.funcIndex, test.funcIndex, fmt.Sprintf("test %d", i))
+		assert.Equal(t, pn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", pn.requestType), test.request, fmt.Sprintf("test %d", i))
 		assert.Equal(t, fmt.Sprintf("%v", pn.responseType), test.response, fmt.Sprintf("test %d", i))
 	}

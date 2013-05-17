@@ -58,7 +58,7 @@ func (f pathFormatter) Path(params ...string) string {
 }
 
 type node interface {
-	init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error)
+	init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error)
 }
 
 type handler interface {
@@ -83,14 +83,12 @@ func (w *processorWriter) Write(p []byte) (int, error) {
 }
 
 type processorNode struct {
-	funcIndex    int
+	f            reflect.Value
 	requestType  reflect.Type
 	responseType reflect.Type
 }
 
 func (n *processorNode) handle(instance reflect.Value, ctx *context) {
-	f := instance.Method(n.funcIndex)
-
 	if ctx.compresser != nil {
 		c, err := ctx.compresser.Writer(ctx.responseWriter)
 		if err == nil {
@@ -114,14 +112,16 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		args = append(args, request.Elem())
 	}
 
-	ret := f.Call(args)
+	ret := n.f.Call(args)
 
-	if !ctx.isError && len(ret) > 0 {
-		err := ctx.marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
-		if err != nil {
-			ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, fmt.Sprintf("marshal response to %s failed: %s", ret[0].Type().Name(), err)))
-			return
-		}
+	if ctx.isError || len(ret) == 0 {
+		return
+	}
+
+	err := ctx.marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, fmt.Sprintf("marshal response to %s failed: %s", ret[0].Type().Name(), err)))
+		return
 	}
 }
 
@@ -154,14 +154,12 @@ func (w *streamingWriter) WriteHeader(code int) {
 }
 
 type streamingNode struct {
-	funcIndex   int
+	f           reflect.Value
 	end         string
 	requestType reflect.Type
 }
 
 func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
-	f := instance.Method(n.funcIndex)
-
 	hj, ok := ctx.responseWriter.(http.Hijacker)
 	if !ok {
 		ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, "webserver doesn't support hijacking"))
@@ -209,5 +207,5 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 
 	ctx.responseWriter.Header().Set("Connection", "keep-alive")
-	f.Call(args)
+	n.f.Call(args)
 }
