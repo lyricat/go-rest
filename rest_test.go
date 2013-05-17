@@ -148,5 +148,8 @@ func TestRestServeHTTP(t *testing.T) {
 		}
 		assert.Equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
 		assert.Equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %d", i))
+
+		service := test.node.lastInstance.Field(0).Interface().(Service)
+		assert.Equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %d", i))
 	}
 }

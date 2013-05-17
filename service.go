@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"net/http"
 	"reflect"
 )
 
@@ -28,7 +29,52 @@ type Service struct {
 	// Set the service default charset, it will over right charset in tag.
 	DefaultCharset string
 
-	ctx *context
+	*context
+}
+
+// Return the http request instance.
+func (s Service) Request() *http.Request {
+	return s.request
+}
+
+// Variables from url.
+func (s Service) Vars() map[string]string {
+	return s.vars
+}
+
+// Write response code and header. Same as http.ResponseWriter.WriteHeader(int)
+func (s Service) WriteHeader(code int) {
+	s.responseWriter.WriteHeader(code)
+}
+
+// Get the response header.
+func (s Service) Header() http.Header {
+	return s.responseWriter.Header()
+}
+
+// Get Default format error, which is like:
+//
+//     type Error struct {
+//         Code    int
+//         Message string
+//     }
+//
+// And it will marshal to special mime-type when calling with Service.Error.
+func (s Service) GetError(code int, message string) error {
+	return s.marshaller.Error(code, message)
+}
+
+// Error replies to the request with the specified error message and HTTP code.
+func (s Service) Error(code int, err error) {
+	s.WriteHeader(code)
+	s.marshaller.Marshal(s.responseWriter, err)
+	s.isError = true
+}
+
+// Redirect to the specified path.
+func (s Service) RedirectTo(path string) {
+	s.Header().Set("Location", path)
+	s.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func initService(service reflect.Value, tag reflect.StructTag) (string, string, string, error) {

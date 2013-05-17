@@ -147,18 +147,15 @@ The performance test is in perf_test.go:
 
  - BenchmarkPlainFull: post a string and response a string, without go-rest framework. It use to compare BenchmarkRestFull.
 
-The result in my mbp list below:
+The result in mu mbp list below:
 
-	$ go version
-	go version go1.1 darwin/amd64
-	
 	$ go test -test.bench=Bench*
 	PASS
-	BenchmarkHttpServeFull	   10000	    222218 ns/op
-	BenchmarkRestServe	  500000	      3934 ns/op
-	BenchmarkRestGet	  200000	      7732 ns/op
-	BenchmarkRestPost	  200000	      9599 ns/op
-	BenchmarkRestFull	  200000	     11133 ns/op
-	BenchmarkPlainGet	  200000	      8402 ns/op
-	BenchmarkPlainPost	  200000	      8836 ns/op
-	BenchmarkPlainFull	  200000	      8766 ns/op
+	BenchmarkHttpServeFull	   10000	    147273 ns/op
+	BenchmarkRestServe	  200000	      8288 ns/op
+	BenchmarkRestGet	  200000	     11474 ns/op
+	BenchmarkRestPost	  200000	     14423 ns/op
+	BenchmarkRestFull	  100000	     15793 ns/op
+	BenchmarkPlainGet	  200000	     10906 ns/op
+	BenchmarkPlainPost	  200000	     11239 ns/op
+	BenchmarkPlainFull	  200000	     11250 ns/op

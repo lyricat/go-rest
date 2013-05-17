@@ -11,30 +11,28 @@ import (
 Stream  wrap the connection when using streaming.
 */
 type Stream struct {
-	*context
+	ctx  *context
 	conn net.Conn
 	end  string
 }
 
 func newStream(ctx *context, conn net.Conn, end string) *Stream {
 	return &Stream{
-		context: ctx,
-		conn:    conn,
-		end:     end,
+		ctx:  ctx,
+		conn: conn,
+		end:  end,
 	}
 }
 
 // Write data i as a frame to the connection.
 func (s *Stream) Write(i interface{}) error {
-	err := s.marshaller.Marshal(s.context.responseWriter, i)
+	err := s.ctx.marshaller.Marshal(s.ctx.responseWriter, i)
 	if err != nil {
 		return err
 	}
-	if len(s.end) > 0 {
-		_, err = s.conn.Write([]byte(s.end))
-		if err != nil {
-			return err
-		}
+	_, err = s.ctx.responseWriter.Write([]byte(s.end))
+	if err != nil {
+		return err
 	}
 	return nil
 }

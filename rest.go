@@ -23,7 +23,7 @@ Define a service struct like this:
 	// > curl "http://127.0.0.1:8080/prefix/hello" -d '{"to":"rest", "post":"rest is powerful"}'
 	//
 	// No response
-	func (r RestExample) HandleCreateHello(ctx rest.Context, arg HelloArg) {
+	func (r RestExample) HandleCreateHello(arg HelloArg) {
 		r.post[arg.To] = arg.Post
 		c, ok := r.watch[arg.To]
 		if ok {
@@ -39,11 +39,11 @@ Define a service struct like this:
 	//
 	// Response:
 	//   {"to":"rest","post":"rest is powerful"}
-	func (r RestExample) HandleHello(ctx rest.Context) HelloArg {
-		to := ctx.Vars()["to"]
+	func (r RestExample) HandleHello() HelloArg {
+		to := r.Vars()["to"]
 		post, ok := r.post[to]
 		if !ok {
-			ctx.Error(http.StatusNotFound, 2, "can't find hello to %s", to)
+			r.Error(http.StatusNotFound, r.GetError(2, fmt.Sprintf("can't find hello to %s", to)))
 			return HelloArg{}
 		}
 		return HelloArg{
@@ -58,11 +58,12 @@ Define a service struct like this:
 	// It create a long-live connection and will receive post content "rest is powerful"
 	// when running post example.
 	func (r RestExample) HandleWatch(s rest.Stream) {
-		to := s.Vars()["to"]
+		to := r.Vars()["to"]
 		if to == "" {
-			s.Error(http.StatusBadRequest, 3, "need to")
+			r.Error(http.StatusBadRequest, r.GetError(3, "need to"))
 			return
 		}
+		r.WriteHeader(http.StatusOK)
 		c := make(chan string)
 		r.watch[to] = c
 		for {
@@ -122,6 +123,7 @@ type Rest struct {
 	needCompress   bool
 	defaultMime    string
 	defaultCharset string
+	ctxField       reflect.Value
 }
 
 // Create Rest instance from service instance
@@ -193,6 +195,7 @@ func New(s interface{}) (*Rest, error) {
 		needCompress:   needCompress,
 		defaultMime:    mime,
 		defaultCharset: charset,
+		ctxField:       instance.Field(serviceIndex).FieldByName("context"),
 	}, nil
 }
 
@@ -223,6 +226,8 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	re.ctxField.Set(reflect.ValueOf(ctx))
 
 	handler.handle(re.instance, ctx)
 }
