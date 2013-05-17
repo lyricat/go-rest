@@ -151,11 +151,11 @@ The result in mu mbp list below:
 
 	$ go test -test.bench=Bench*
 	PASS
-	BenchmarkHttpServeFull	   10000	    147273 ns/op
-	BenchmarkRestServe	  200000	      8288 ns/op
-	BenchmarkRestGet	  200000	     11474 ns/op
-	BenchmarkRestPost	  200000	     14423 ns/op
-	BenchmarkRestFull	  100000	     15793 ns/op
-	BenchmarkPlainGet	  200000	     10906 ns/op
-	BenchmarkPlainPost	  200000	     11239 ns/op
-	BenchmarkPlainFull	  200000	     11250 ns/op
+	BenchmarkHttpServeFull	   10000	    155805 ns/op
+	BenchmarkRestServe	  500000	      5774 ns/op
+	BenchmarkRestGet	  200000	     10496 ns/op
+	BenchmarkRestPost	  200000	     13364 ns/op
+	BenchmarkRestFull	  100000	     14857 ns/op
+	BenchmarkPlainGet	  200000	     10094 ns/op
+	BenchmarkPlainPost	  200000	     10413 ns/op
+	BenchmarkPlainFull	  200000	     10528 ns/op
