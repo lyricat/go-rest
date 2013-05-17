@@ -27,17 +27,7 @@ Valid tag:
  - mime: Define the default mime of request's and response's body. It overwrite the service one.
 */
 type Processor struct {
-	formatter pathFormatter
-}
-
-// Generate the path of url to processor. Map args fill parameters in path.
-func (p Processor) PathMap(args map[string]string) string {
-	return p.formatter.pathMap(args)
-}
-
-// Generate the path of url to processor. It accepts a sequence of key/value pairs, and fill parameters in path.
-func (p Processor) Path(args ...string) string {
-	return p.formatter.path(args...)
+	pathFormatter
 }
 
 func (p *Processor) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
@@ -67,7 +57,7 @@ func (p *Processor) init(formatter pathFormatter, instance reflect.Type, name st
 		ret.responseType = ft.Out(0)
 	}
 
-	p.formatter = formatter
+	p.pathFormatter = formatter
 
 	return []handler{ret}, []pathFormatter{formatter}, nil
 }

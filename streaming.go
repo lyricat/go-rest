@@ -66,17 +66,7 @@ Valid tag:
  - end: Define the end of one data when streaming working.
 */
 type Streaming struct {
-	formatter pathFormatter
-}
-
-// Generate the path of url to processor. Map args fill parameters in path.
-func (p Streaming) PathMap(args map[string]string) string {
-	return p.formatter.pathMap(args)
-}
-
-// Generate the path of url to processor. It accepts a sequence of key/value pairs, and fill parameters in path.
-func (p Streaming) Path(args ...string) string {
-	return p.formatter.path(args...)
+	pathFormatter
 }
 
 func (p *Streaming) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
@@ -107,7 +97,7 @@ func (p *Streaming) init(formatter pathFormatter, instance reflect.Type, name st
 	}
 
 	ret.end = tag.Get("end")
-	p.formatter = formatter
+	p.pathFormatter = formatter
 
 	return []handler{ret}, []pathFormatter{formatter}, nil
 }

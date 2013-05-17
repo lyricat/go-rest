@@ -31,7 +31,8 @@ func pathToFormatter(prefix, path string) pathFormatter {
 	return pathFormatter(prefix + path)
 }
 
-func (f pathFormatter) pathMap(args map[string]string) string {
+// Generate the path of url to processor. Map args fill parameters in path.
+func (f pathFormatter) PathMap(args map[string]string) string {
 	ret := string(f)
 	for k, v := range args {
 		ret = strings.Replace(ret, ":"+k, v, -1)
@@ -39,7 +40,8 @@ func (f pathFormatter) pathMap(args map[string]string) string {
 	return ret
 }
 
-func (f pathFormatter) path(params ...string) string {
+// Generate the path of url to processor. It accepts a sequence of key/value pairs, and fill parameters in path.
+func (f pathFormatter) Path(params ...string) string {
 	var key string
 	m := make(map[string]string)
 	for i, p := range params {
@@ -53,7 +55,7 @@ func (f pathFormatter) path(params ...string) string {
 	if key != "" {
 		m[key] = ""
 	}
-	return f.pathMap(m)
+	return f.PathMap(m)
 }
 
 type node interface {

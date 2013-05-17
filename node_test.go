@@ -32,7 +32,7 @@ func TestMapFormatter(t *testing.T) {
 	for i, test := range tests {
 		formatter := pathToFormatter(test.prefix, test.path)
 		assert.Equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, formatter.pathMap(test.args), test.url, fmt.Sprintf("test %d", i))
+		assert.Equal(t, formatter.PathMap(test.args), test.url, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -55,7 +55,7 @@ func TestFormatter(t *testing.T) {
 	for i, test := range tests {
 		formatter := pathToFormatter(test.prefix, test.path)
 		assert.Equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, formatter.path(test.args...), test.url, fmt.Sprintf("test %d", i))
+		assert.Equal(t, formatter.Path(test.args...), test.url, fmt.Sprintf("test %d", i))
 	}
 }
 

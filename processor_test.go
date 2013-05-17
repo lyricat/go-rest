@@ -107,7 +107,7 @@ func TestProcessorInit(t *testing.T) {
 		if !test.ok || err != nil {
 			continue
 		}
-		assert.Equal(t, node.formatter, test.path, fmt.Sprintf("test %d", i))
+		assert.Equal(t, node.pathFormatter, test.path, fmt.Sprintf("test %d", i))
 		assert.Equal(t, len(handlers), 1, fmt.Sprintf("test %d", i))
 		assert.Equal(t, len(paths), 1, fmt.Sprintf("test %d", i))
 		assert.Equal(t, paths[0], test.path, fmt.Sprintf("test %d", i))
