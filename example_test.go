@@ -46,7 +46,7 @@ func (r RestExample) HandleHello(ctx rest.Context) HelloArg {
 	to := ctx.Vars()["to"]
 	post, ok := r.post[to]
 	if !ok {
-		ctx.Error(resp, http.StatusNotFound, 2, "can't find hello to %s", to)
+		ctx.Error(http.StatusNotFound, 2, "can't find hello to %s", to)
 		return HelloArg{}
 	}
 	return HelloArg{
@@ -63,7 +63,7 @@ func (r RestExample) HandleHello(ctx rest.Context) HelloArg {
 func (r RestExample) HandleWatch(s rest.Stream) {
 	to := s.Vars()["to"]
 	if to == "" {
-		s.Error(s, http.StatusBadRequest, 3, "need to")
+		s.Error(http.StatusBadRequest, 3, "need to")
 		return
 	}
 	c := make(chan string)
