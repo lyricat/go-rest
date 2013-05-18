@@ -30,9 +30,11 @@ func (s *Stream) Write(i interface{}) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.ctx.responseWriter.Write([]byte(s.end))
-	if err != nil {
-		return err
+	if len(s.end) > 0 {
+		_, err = s.ctx.responseWriter.Write([]byte(s.end))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -81,7 +83,8 @@ func (p *Streaming) init(formatter pathFormatter, instance reflect.Value, name s
 
 	ft := f.Type()
 	ret := &streamingNode{
-		f: f,
+		f:     f,
+		name_: name,
 	}
 	if ft.NumIn() > 2 || ft.NumIn() < 1 {
 		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", ft.Name())

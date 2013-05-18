@@ -42,7 +42,8 @@ func (p *Processor) init(formatter pathFormatter, instance reflect.Value, name s
 
 	ft := f.Type()
 	ret := &processorNode{
-		f: f,
+		f:     f,
+		name_: name,
 	}
 	if ft.NumIn() > 1 {
 		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", ft.Name())

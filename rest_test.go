@@ -18,11 +18,16 @@ type FakeNode struct {
 
 func (n *FakeNode) init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	n.formatter = formatter
-	return []handler{&FakeHandler{n}}, []pathFormatter{formatter}, nil
+	return []handler{&FakeHandler{name, n}}, []pathFormatter{formatter}, nil
 }
 
 type FakeHandler struct {
-	node *FakeNode
+	name_ string
+	node  *FakeNode
+}
+
+func (h *FakeHandler) name() string {
+	return h.name_
 }
 
 func (h *FakeHandler) handle(instance reflect.Value, ctx *context) {

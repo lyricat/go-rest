@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	// "net/url"
 	"testing"
 	"time"
 )
@@ -150,9 +149,7 @@ func TestExample(t *testing.T) {
 	assert.Equal(t, rest.Prefix(), "/prefix")
 
 	server := httptest.NewServer(rest)
-	defer func() {
-		server.Close()
-	}()
+	defer server.Close()
 
 	resp, err := http.Get(server.URL + "/prefix/hello/rest")
 	if err != nil {

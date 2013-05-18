@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
-	"time"
 )
 
 var ret = "Hello world."
@@ -43,18 +42,21 @@ func init() {
 
 func BenchmarkHttpServeFull(b *testing.B) {
 	b.StopTimer()
-	go http.ListenAndServe("127.0.0.1:12345", rest)
-	time.Sleep(time.Second / 2)
+	server := httptest.NewServer(rest)
+	defer server.Close()
+	url := server.URL + "/prefix/processor/id/full"
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
 		buf := bytes.NewBufferString("\"post\"")
-		resp, err := http.Post("http://127.0.0.1:12345/prefix/processor/id/full", "application/json", buf)
+		resp, err := http.Post(url, "application/json", buf)
 		if err != nil {
 			panic(err)
 		}
 		resp.Body.Close()
 	}
+
+	b.StopTimer()
 }
 
 func BenchmarkRestServe(b *testing.B) {

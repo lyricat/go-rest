@@ -62,6 +62,7 @@ type node interface {
 }
 
 type handler interface {
+	name() string
 	handle(instance reflect.Value, ctx *context)
 }
 
@@ -83,9 +84,14 @@ func (w *processorWriter) Write(p []byte) (int, error) {
 }
 
 type processorNode struct {
+	name_        string
 	f            reflect.Value
 	requestType  reflect.Type
 	responseType reflect.Type
+}
+
+func (n *processorNode) name() string {
+	return n.name_
 }
 
 func (n *processorNode) handle(instance reflect.Value, ctx *context) {
@@ -154,9 +160,14 @@ func (w *streamingWriter) WriteHeader(code int) {
 }
 
 type streamingNode struct {
+	name_       string
 	f           reflect.Value
 	end         string
 	requestType reflect.Type
+}
+
+func (n *streamingNode) name() string {
+	return n.name_
 }
 
 func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
