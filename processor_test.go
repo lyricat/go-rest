@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -103,21 +102,21 @@ func TestProcessorInit(t *testing.T) {
 	for i, test := range tests {
 		node := new(Processor)
 		handlers, paths, err := node.init(test.path, instance, test.name, test.tag)
-		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if !test.ok || err != nil {
 			continue
 		}
-		assert.Equal(t, node.pathFormatter, test.path, fmt.Sprintf("test %d", i))
-		assert.Equal(t, len(handlers), 1, fmt.Sprintf("test %d", i))
-		assert.Equal(t, len(paths), 1, fmt.Sprintf("test %d", i))
-		assert.Equal(t, paths[0], test.path, fmt.Sprintf("test %d", i))
+		equal(t, node.pathFormatter, test.path, fmt.Sprintf("test %d", i))
+		equal(t, len(handlers), 1, fmt.Sprintf("test %d", i))
+		equal(t, len(paths), 1, fmt.Sprintf("test %d", i))
+		equal(t, paths[0], test.path, fmt.Sprintf("test %d", i))
 		pn, ok := handlers[0].(*processorNode)
 		if !ok {
 			t.Errorf("not *processorNode")
 			continue
 		}
-		assert.Equal(t, pn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
-		assert.Equal(t, fmt.Sprintf("%v", pn.requestType), test.request, fmt.Sprintf("test %d", i))
-		assert.Equal(t, fmt.Sprintf("%v", pn.responseType), test.response, fmt.Sprintf("test %d", i))
+		equal(t, pn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
+		equal(t, fmt.Sprintf("%v", pn.requestType), test.request, fmt.Sprintf("test %d", i))
+		equal(t, fmt.Sprintf("%v", pn.responseType), test.response, fmt.Sprintf("test %d", i))
 	}
 }

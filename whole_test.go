@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -120,7 +119,7 @@ func TestError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new rest service failed: %s", err)
 	}
-	assert.Equal(t, r.Prefix(), "/prefix")
+	equal(t, r.Prefix(), "/prefix")
 	for i, test := range tests {
 		buf := bytes.NewBufferString(test.request)
 		req, err := http.NewRequest(test.method, test.url, buf)
@@ -130,9 +129,9 @@ func TestError(t *testing.T) {
 		resp := httptest.NewRecorder()
 		resp.Code = http.StatusOK
 		r.ServeHTTP(resp, req)
-		assert.Equal(t, resp.Code, test.code, "test %d", i)
-		assert.Equal(t, resp.Body.String(), test.response, "test %d", i)
-		assert.Equal(t, resp.HeaderMap, test.headers, "test %d", i)
+		equal(t, resp.Code, test.code, "test %d", i)
+		equal(t, resp.Body.String(), test.response, "test %d", i)
+		equal(t, resp.HeaderMap, test.headers, "test %d", i)
 	}
 }
 
@@ -146,7 +145,7 @@ func TestExample(t *testing.T) {
 		t.Fatalf("create rest failed: %s", err)
 	}
 
-	assert.Equal(t, rest.Prefix(), "/prefix")
+	equal(t, rest.Prefix(), "/prefix")
 
 	server := httptest.NewServer(rest)
 	defer server.Close()
@@ -156,7 +155,7 @@ func TestExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	assert.Equal(t, resp.StatusCode, http.StatusNotFound)
+	equal(t, resp.StatusCode, http.StatusNotFound)
 
 	c := make(chan int)
 	go func() {
@@ -166,13 +165,13 @@ func TestExample(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		assert.Equal(t, resp.StatusCode, http.StatusBadRequest)
-		assert.Equal(t, resp.Header, http.Header{"Connection": []string{"keep-alive"}, "Content-Type": []string{"application/json; charset=utf-8"}})
+		equal(t, resp.StatusCode, http.StatusBadRequest)
+		equal(t, resp.Header, http.Header{"Connection": []string{"keep-alive"}, "Content-Type": []string{"application/json; charset=utf-8"}})
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.Equal(t, string(body), "{\"code\":3,\"message\":\"need 'to' parameter.\"}\n")
+		equal(t, string(body), "{\"code\":3,\"message\":\"need 'to' parameter.\"}\n")
 
 		resp, err = http.Get(server.URL + "/prefix/hello/rest/streaming")
 		if err != nil {
@@ -180,7 +179,7 @@ func TestExample(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		assert.Equal(t, resp.StatusCode, http.StatusOK)
+		equal(t, resp.StatusCode, http.StatusOK)
 
 		expect := "\"rest is powerful\"\n"
 		get := make([]byte, len(expect))
@@ -189,7 +188,7 @@ func TestExample(t *testing.T) {
 			t.Fatal(err)
 		}
 		get = get[:n]
-		assert.Equal(t, string(get), expect)
+		equal(t, string(get), expect)
 
 		c <- 1
 	}()
@@ -224,15 +223,15 @@ func TestExample(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	equal(t, resp.StatusCode, http.StatusOK)
 
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&arg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, arg.To, "rest")
-	assert.Equal(t, arg.Post, "rest is powerful")
+	equal(t, arg.To, "rest")
+	equal(t, arg.Post, "rest is powerful")
 }
 
 type CompressExample struct {
@@ -269,13 +268,13 @@ func TestCompress(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	equal(t, resp.StatusCode, http.StatusOK)
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, resp.Header.Get("Content-Encoding"), "gzip")
-	assert.Equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
+	equal(t, resp.Header.Get("Content-Encoding"), "gzip")
+	equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
 
 	req, err = http.NewRequest("GET", server.URL+"/s", nil)
 	if err != nil {
@@ -287,11 +286,11 @@ func TestCompress(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	assert.Equal(t, resp.StatusCode, http.StatusOK)
+	equal(t, resp.StatusCode, http.StatusOK)
 	b, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, resp.Header.Get("Content-Encoding"), "gzip")
-	assert.Equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
+	equal(t, resp.Header.Get("Content-Encoding"), "gzip")
+	equal(t, string(b), "\x1f\x8b\b\x00\x00\tn\x88\x00\xffR\xf2H\xcd\xc9\xc9W\xe2\x02\x04\x00\x00\xff\xffa\xeer\xd8\b\x00\x00\x00")
 }

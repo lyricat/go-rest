@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -27,14 +26,14 @@ func TestService(t *testing.T) {
 	for i, test := range tests {
 		service := new(Service)
 		prefix, mime, charset, err := initService(reflect.ValueOf(service).Elem(), test.tag)
-		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d", i))
+		equal(t, err == nil, test.ok, fmt.Sprintf("test %d", i))
 		if !test.ok {
 			t.Error(err)
 			continue
 		}
 
-		assert.Equal(t, prefix, test.prefix, fmt.Sprintf("test %d", i))
-		assert.Equal(t, mime, test.mime, fmt.Sprintf("test %d", i))
-		assert.Equal(t, charset, test.charset, fmt.Sprintf("test %d", i))
+		equal(t, prefix, test.prefix, fmt.Sprintf("test %d", i))
+		equal(t, mime, test.mime, fmt.Sprintf("test %d", i))
+		equal(t, charset, test.charset, fmt.Sprintf("test %d", i))
 	}
 }

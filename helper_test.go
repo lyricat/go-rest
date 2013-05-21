@@ -3,8 +3,13 @@ package rest
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"net"
 	"net/http"
+	"reflect"
+	"runtime"
+	"strings"
+	"testing"
 	"time"
 )
 
@@ -89,4 +94,63 @@ func (w *fakeHijacker) WriteHeader(code int) {
 func (w *fakeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	bufrw := bufio.NewReadWriter(bufio.NewReader(w.conn), bufio.NewWriter(w.conn))
 	return w.conn, bufrw, nil
+}
+
+func getWhitespaceString() string {
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		return ""
+	}
+	parts := strings.Split(file, "/")
+	file = parts[len(parts)-1]
+
+	return strings.Repeat(" ", len(fmt.Sprintf("%s:%d:      ", file, line)))
+}
+
+func callerInfo() string {
+	file := ""
+	line := 0
+	ok := false
+
+	for i := 0; ; i++ {
+		_, file, line, ok = runtime.Caller(i)
+		if !ok {
+			return ""
+		}
+		parts := strings.Split(file, "/")
+		dir := parts[len(parts)-2]
+		file = parts[len(parts)-1]
+		if (dir != "assert" && dir != "mock") || file == "mock_test.go" {
+			break
+		}
+	}
+
+	return fmt.Sprintf("%s:%d", file, line)
+}
+
+func equal(t *testing.T, a, b interface{}, args ...interface{}) {
+	msg := ""
+	if len(args) == 1 {
+		msg = args[0].(string)
+	}
+	if len(args) > 1 {
+		msg = fmt.Sprintf(args[0].(string), args[1:]...)
+	}
+
+	if reflect.DeepEqual(a, b) {
+		return
+	}
+	if reflect.ValueOf(a) == reflect.ValueOf(b) {
+		return
+	}
+	if fmt.Sprintf("%#v", a) == fmt.Sprintf("%#v", b) {
+		return
+	}
+
+	if len(msg) > 0 {
+		t.Errorf("\r%s\r\tLocation:\t%s\n\r\tError:\t\tNot equal: %#v != %#v\n\r\tMessages:\t%s\n\r", getWhitespaceString(), callerInfo(), a, b, msg)
+	} else {
+		t.Errorf("\r%s\r\tLocation:\t%s\n\r\tError:\t\tNot equal: %#v != %#v\n\r", getWhitespaceString(), callerInfo(), a, b)
+	}
+
 }

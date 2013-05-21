@@ -3,7 +3,6 @@ package rest
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -90,19 +89,19 @@ func TestNewRest(t *testing.T) {
 	}
 	for i, test := range tests {
 		r, err := New(test.instance)
-		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if err != nil || !test.ok {
 			continue
 		}
-		assert.Equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %d"), i)
-		assert.Equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %d"), i)
-		assert.Equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %d"), i)
+		equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %d"), i)
+		equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %d"), i)
+		equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %d"), i)
 		handler, ok := r.router.Routes[0].Dest.(*FakeHandler)
 		if !ok {
 			fmt.Errorf("handler not *FakeHandler")
 			continue
 		}
-		assert.Equal(t, handler.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
+		equal(t, handler.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -147,14 +146,14 @@ func TestRestServeHTTP(t *testing.T) {
 		w := httptest.NewRecorder()
 		w.Code = http.StatusOK
 		rest.ServeHTTP(w, req)
-		assert.Equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %s", i, w.Code))
+		equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %s", i, w.Code))
 		if w.Code != http.StatusOK {
 			continue
 		}
-		assert.Equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %d", i))
+		equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
+		equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %d", i))
 
 		service := test.node.lastInstance.Field(0).Interface().(Service)
-		assert.Equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %d", i))
+		equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %d", i))
 	}
 }

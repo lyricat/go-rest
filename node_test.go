@@ -3,7 +3,6 @@ package rest
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -31,8 +30,8 @@ func TestMapFormatter(t *testing.T) {
 	}
 	for i, test := range tests {
 		formatter := pathToFormatter(test.prefix, test.path)
-		assert.Equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, formatter.PathMap(test.args), test.url, fmt.Sprintf("test %d", i))
+		equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
+		equal(t, formatter.PathMap(test.args), test.url, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -54,8 +53,8 @@ func TestFormatter(t *testing.T) {
 	}
 	for i, test := range tests {
 		formatter := pathToFormatter(test.prefix, test.path)
-		assert.Equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
-		assert.Equal(t, formatter.Path(test.args...), test.url, fmt.Sprintf("test %d", i))
+		equal(t, string(formatter), test.formatter, fmt.Sprintf("test %d", i))
+		equal(t, formatter.Path(test.args...), test.url, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -106,22 +105,22 @@ func TestProcessorNodeHandle(t *testing.T) {
 		}
 		buf := bytes.NewBufferString(test.requestBody)
 		req, err := http.NewRequest("GET", "http://fake.domain", buf)
-		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
 		if err != nil {
 			continue
 		}
 		w := httptest.NewRecorder()
 		w.Code = http.StatusOK
 		ctx, err := newContext(w, req, nil, "application/json", "utf-8")
-		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
 		if err != nil {
 			continue
 		}
 		node.handle(instance, ctx)
-		assert.Equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %d", i, w.Code))
-		assert.Equal(t, w.Body.String(), test.responseBody, fmt.Sprintf("test %d", i))
-		assert.Equal(t, s.last["method"], test.fname, fmt.Sprintf("test %d", i))
-		assert.Equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
+		equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %d", i, w.Code))
+		equal(t, w.Body.String(), test.responseBody, fmt.Sprintf("test %d", i))
+		equal(t, s.last["method"], test.fname, fmt.Sprintf("test %d", i))
+		equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -161,19 +160,19 @@ func TestStreamingNodeHandle(t *testing.T) {
 		}
 		buf := bytes.NewBufferString(test.requestBody)
 		req, err := http.NewRequest("GET", "http://fake.domain", buf)
-		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
 		if err != nil {
 			continue
 		}
 		h := newHijacker()
 		ctx, err := newContext(h, req, nil, "application/json", "utf-8")
-		assert.Equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err, nil, fmt.Sprintf("test %d error: %s", i, err))
 		if err != nil {
 			continue
 		}
 		sn.handle(instance, ctx)
-		assert.Equal(t, h.code, test.code, fmt.Sprintf("test %d code: %d", i, h.code))
-		assert.Equal(t, s.last["method"], test.f.Name, fmt.Sprintf("test %d", i))
-		assert.Equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
+		equal(t, h.code, test.code, fmt.Sprintf("test %d code: %d", i, h.code))
+		equal(t, s.last["method"], test.f.Name, fmt.Sprintf("test %d", i))
+		equal(t, s.last["input"], test.input, fmt.Sprintf("test %d", i))
 	}
 }

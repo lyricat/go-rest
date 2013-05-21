@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"github.com/stretchrcom/testify/assert"
 	"net/http"
 	"testing"
 )
@@ -55,15 +54,15 @@ func TestNewContext(t *testing.T) {
 			req.Header.Set(k, v)
 		}
 		ctx, err := newContext(test.w, req, nil, test.defaultMime, test.defaultCharset)
-		assert.Equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if !test.ok || err != nil {
 			continue
 		}
-		assert.Equal(t, ctx.mime, test.mime, fmt.Sprintf("test %d", i))
-		assert.Equal(t, ctx.charset, test.charset, fmt.Sprintf("test %d", i))
-		assert.Equal(t, ctx.marshaller, test.marshaller, fmt.Sprintf("test %d", i))
-		assert.Equal(t, ctx.request, req, fmt.Sprintf("test %d", i))
-		assert.Equal(t, ctx.responseWriter, test.response, fmt.Sprintf("test %d", i))
+		equal(t, ctx.mime, test.mime, fmt.Sprintf("test %d", i))
+		equal(t, ctx.charset, test.charset, fmt.Sprintf("test %d", i))
+		equal(t, ctx.marshaller, test.marshaller, fmt.Sprintf("test %d", i))
+		equal(t, ctx.request, req, fmt.Sprintf("test %d", i))
+		equal(t, ctx.responseWriter, test.response, fmt.Sprintf("test %d", i))
 	}
 }
 
@@ -90,7 +89,7 @@ func TestParseHeaderField(t *testing.T) {
 		}
 		req.Header.Set(test.field, test.header)
 		ret, pair := parseHeaderField(req, test.field)
-		assert.Equal(t, ret, test.ret, fmt.Sprintf("test %d", i))
+		equal(t, ret, test.ret, fmt.Sprintf("test %d", i))
 		if !equalMap(pair, test.pair) {
 			t.Errorf("test %d not equal:\nexpect: %v\ngot: %v", i, test.pair, pair)
 		}
