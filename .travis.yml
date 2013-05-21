@@ -1,4 +1,4 @@
 language: go
 install:
   - go get github.com/googollee/go-rest
-script: go get github.com/stretchrcom/testify/assert && go test
+script: go test
