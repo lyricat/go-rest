@@ -43,7 +43,9 @@ func init() {
 func BenchmarkHttpServeFull(b *testing.B) {
 	b.StopTimer()
 	server := httptest.NewServer(rest)
-	defer server.Close()
+	defer func() {
+		server.Close()
+	}()
 	url := server.URL + "/prefix/processor/id/full"
 	b.StartTimer()
 
