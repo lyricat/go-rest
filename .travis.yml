@@ -2,5 +2,5 @@ language: go
 install:
   - go get github.com/googollee/go-rest
 script: 
-  - cd googollee/go-rest
+  - ls
   - go test
