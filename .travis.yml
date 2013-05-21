@@ -2,5 +2,5 @@ language: go
 install:
   - go get github.com/googollee/go-rest
 script: 
-  - ls
+  - cd $TRAVIS_BUILD_DIR
   - go test
