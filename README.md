@@ -5,6 +5,39 @@ Package rest is a RESTful web-service framework. It make struct method to http.H
 
 [![Build Status](https://travis-ci.org/googollee/go-rest.png?branch=master)](https://travis-ci.org/googollee/go-rest/)
 
+Why another rest framework?
+---------------------------
+
+I want to make a clear, flexible framework, which easy to write and test. Here is some principle when I design go-rest:
+
+ - Don't repeat yourself.
+
+ 	The framework will grab as many as it can to set up service. As comparing, [gorest](http://code.google.com/p/gorest/) need to specify the "postdata" or "output" which has defined in EndPoint handler.
+
+ - Can handle HTTP directly if you want.
+
+ 	Service.Request(), Service.Header() and Service.WriteHeader(int) can handle HTTP request or response directly. For example, you can do some thing like that:
+
+		type Rest struct {
+			rest.Service
+			HttpDirect `path:"/" method:"GET"`
+		}
+
+		func (r Rest) HandleHttpDirect() {
+			ioutil.ReadAll(r.Request().Body)
+			// or
+			r.Request().ParseForm()
+			r.Request().PostForm
+		}
+
+ - Handle HTTP request right.
+
+ 	Use Accept-Encoding to check compression and use Accept to check mime. If Accept doesn't exist, use service default mime.
+
+ - Easy to do unit test. (not implement yet)
+
+ 	No need to worry about marshal and unmarshal when do unit test, test handle function with input or output arguments directly. (using rest.SetTest)
+
 Install
 -------
 
