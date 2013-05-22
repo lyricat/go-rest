@@ -34,7 +34,7 @@ I want to make a clear, flexible framework, which easy to write and test. Here i
 
  	Use Accept-Encoding to check compression and use Accept to check mime. If Accept doesn't exist, use service default mime.
 
- - Easy to do unit test. (not implement yet)
+ - Easy to do unit test.
 
  	No need to worry about marshal and unmarshal when do unit test, test handle function with input or output arguments directly. (using rest.SetTest)
 
