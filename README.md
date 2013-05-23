@@ -3,12 +3,16 @@ go-rest
 
 Package rest is a RESTful web-service framework. It make struct method to http.Handler automatically.
 
-[![Build Status](https://travis-ci.org/googollee/go-rest.png?branch=master)](https://travis-ci.org/googollee/go-rest/)
+[![Build Status](https://travis-ci.org/googollee/go-rest.png?branch=master)](https://travis-ci.org/googollee/go-rest/)[![Build Status](https://drone.io/github.com/googollee/go-rest/status.png)](https://drone.io/github.com/googollee/go-rest/latest)[![Coverage Status](https://coveralls.io/repos/googollee/go-rest/badge.png?branch=master)](https://coveralls.io/r/googollee/go-rest?branch=master)
 
 Why another rest framework?
 ---------------------------
 
 I want to make a clear, flexible framework, which easy to write and test. Here is some principle when I design go-rest:
+
+ - One place configure.
+
+ 	All configure is set when defining service. No need to switch between service define and service launching to check runtime parameters.
 
  - Don't repeat yourself.
 
