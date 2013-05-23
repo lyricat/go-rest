@@ -120,7 +120,7 @@ func callerInfo() string {
 		parts := strings.Split(file, "/")
 		dir := parts[len(parts)-2]
 		file = parts[len(parts)-1]
-		if (dir != "assert" && dir != "mock") || file == "mock_test.go" {
+		if (dir != "assert" && dir != "mock" && file != "helper_test.go") || file == "mock_test.go" {
 			break
 		}
 	}

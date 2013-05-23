@@ -17,9 +17,9 @@ func TestService(t *testing.T) {
 	}
 	var tests = []Test{
 		{``, true, "/", "application/json", "utf-8"},
-		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml" charset:"gbk"`, true, "/prefix", "application/xml", "gbk"},
-		{`prefix:"/prefix" realm:"abc,xyz" charset:"gbk"`, true, "/prefix", "application/json", "gbk"},
-		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml"`, true, "/prefix", "application/xml", "utf-8"},
+		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml" charset:"gbk"`, true, "/prefix/", "application/xml", "gbk"},
+		{`prefix:"/prefix" realm:"abc,xyz" charset:"gbk"`, true, "/prefix/", "application/json", "gbk"},
+		{`prefix:"/prefix" realm:"abc,xyz" mime:"application/xml"`, true, "/prefix/", "application/xml", "utf-8"},
 		{`realm:"abc,xyz" mime:"application/xml"`, true, "/", "application/xml", "utf-8"},
 	}
 

@@ -38,8 +38,8 @@ func initService(service reflect.Value, tag reflect.StructTag) (string, string, 
 	if prefix[0] != '/' {
 		prefix = "/" + prefix
 	}
-	if l := len(prefix); l > 2 && prefix[l-1] == '/' {
-		prefix = prefix[:l-1]
+	if l := len(prefix); l > 2 && prefix[l-1] != '/' {
+		prefix += "/"
 	}
 
 	return prefix, mime, charset, nil

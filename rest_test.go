@@ -80,9 +80,9 @@ func TestNewRest(t *testing.T) {
 		tag          reflect.StructTag
 	}
 	var tests = []Test{
-		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", `path:"/default" method:"METHOD" other:"other"`},
-		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/func", `path:"/func" method:"METHOD" func:"FuncHandler"`},
-		{new(TestNoPath), true, 0, "/prefix", "mime", "charset", "/prefix", `method:"METHOD"`},
+		{new(TestDefault), true, 0, "/prefix/", "mime", "charset", "/prefix/default", `path:"/default" method:"METHOD" other:"other"`},
+		{new(TestFunc), true, 1, "/prefix/", "mime", "charset", "/prefix/func", `path:"/func" method:"METHOD" func:"FuncHandler"`},
+		{new(TestNoPath), true, 0, "/prefix/", "mime", "charset", "/prefix/", `method:"METHOD"`},
 		{new(TestNoService), false, 0, "", "", "", "", ""},
 		{new(TestNoMethod), false, 0, "", "", "", "", ""},
 		{new(TestSamePath), false, 0, "", "", "", "", ""},
