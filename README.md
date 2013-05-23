@@ -12,27 +12,23 @@ I want to make a clear, flexible framework, which easy to write and test. Here i
 
  - Don't repeat yourself.
 
- 	The framework will grab as many as it can to set up service. As comparing, [gorest](http://code.google.com/p/gorest/) need to specify the "postdata" or "output" which has defined in EndPoint handler.
+ 	The framework will grab as many as it can to set up service. No need to specify "postdata" type or "output" type which has defined in handler.
 
- - Can handle HTTP directly if you want.
+ - Handle HTTP directly if you want.
 
- 	Service.Request(), Service.Header() and Service.WriteHeader(int) can handle HTTP request or response directly. For example, you can do some thing like that:
-
-		type Rest struct {
-			rest.Service
-			HttpDirect `path:"/" method:"GET"`
-		}
-
-		func (r Rest) HandleHttpDirect() {
-			ioutil.ReadAll(r.Request().Body)
-			// or
-			r.Request().ParseForm()
-			r.Request().PostForm
-		}
+ 	Service.Request(), Service.Header() and Service.WriteHeader(int) can handle HTTP request or response directly. Make sure not to special post type if you want to handle request.Body directly.
 
  - Handle HTTP request right.
 
  	Use Accept-Encoding to check compression and use Accept to check mime. If Accept doesn't exist, use service default mime.
+
+ - Work with other framework.
+
+ 	Package go-rest will work with GAE or net/http or any other framework working with http.Handler.
+
+ - Speed.
+
+ 	Golang is fast, framework should be fast too. Performance benchmark is included in perf_test.go. you can compare go-rest and raw handler(with regexp to route) performance.
 
  - Easy to do unit test.
 
@@ -184,11 +180,11 @@ The result in mu mbp list below:
 
 	$ go test -test.bench=Bench*
 	PASS
-	BenchmarkHttpServeFull	    5000	    522543 ns/op
-	BenchmarkRestServe	  500000	      4884 ns/op
-	BenchmarkRestGet	  500000	      7312 ns/op
-	BenchmarkRestPost	  200000	      9214 ns/op
-	BenchmarkRestFull	  200000	     10504 ns/op
-	BenchmarkPlainGet	  200000	      8585 ns/op
-	BenchmarkPlainPost	  200000	      8786 ns/op
-	BenchmarkPlainFull	  200000	      8788 ns/op
+	BenchmarkHttpServeFull	   10000	    222486 ns/op
+	BenchmarkRestServe	  500000	      5084 ns/op
+	BenchmarkRestGet	  200000	      7379 ns/op
+	BenchmarkRestPost	  200000	      9545 ns/op
+	BenchmarkRestFull	  200000	     10707 ns/op
+	BenchmarkPlainGet	  200000	      8816 ns/op
+	BenchmarkPlainPost	  100000	     14519 ns/op
+	BenchmarkPlainFull	  100000	     15601 ns/op

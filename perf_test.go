@@ -123,8 +123,9 @@ var handlers = []struct {
 			return
 		}
 	}},
-	{regexp.MustCompile("^/prefix/processor/(.*?)$/post"), func(w http.ResponseWriter, r *http.Request) {
+	{regexp.MustCompile("^/prefix/processor/(.*?)/post$"), func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
+			panic("post not find")
 			http.Error(w, "", http.StatusNotFound)
 			return
 		}
@@ -132,11 +133,12 @@ var handlers = []struct {
 		var arg string
 		err := decoder.Decode(&arg)
 		if err != nil {
+			panic("post decode err: " + err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}},
-	{regexp.MustCompile("^/prefix/processor/(.*?)$/full"), func(w http.ResponseWriter, r *http.Request) {
+	{regexp.MustCompile("^/prefix/processor/(.*?)/full$"), func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.Error(w, "", http.StatusNotFound)
 			return
@@ -175,7 +177,7 @@ func BenchmarkPlainGet(b *testing.B) {
 func BenchmarkPlainPost(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		buf := bytes.NewBufferString("\"post\"")
-		req, err := http.NewRequest("GET", "http://127.0.0.1/prefix/processor/id", buf)
+		req, err := http.NewRequest("POST", "http://127.0.0.1/prefix/processor/id/post", buf)
 		if err != nil {
 			panic(err)
 		}
@@ -191,7 +193,7 @@ func BenchmarkPlainPost(b *testing.B) {
 func BenchmarkPlainFull(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		buf := bytes.NewBufferString("\"post\"")
-		req, err := http.NewRequest("GET", "http://127.0.0.1/prefix/processor/id", buf)
+		req, err := http.NewRequest("POST", "http://127.0.0.1/prefix/processor/id/full", buf)
 		if err != nil {
 			panic(err)
 		}
