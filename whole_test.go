@@ -16,7 +16,7 @@ type RestExample struct {
 
 	CreateHello Processor `method:"POST" path:"/hello"`
 	GetHello    Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
-	Watch       Streaming `method:"GET" path:"/hello/:to/streaming"`
+	Watch       Streaming `method:"GET" path:"/hello/:to/streaming" end:"\n"`
 
 	post  map[string]string
 	watch map[string]chan string
@@ -181,7 +181,7 @@ func TestExample(t *testing.T) {
 
 		equal(t, resp.StatusCode, http.StatusOK)
 
-		expect := "\"rest is powerful\"\n"
+		expect := "\"rest is powerful\"\n\n"
 		get := make([]byte, len(expect))
 		n, err := resp.Body.Read(get)
 		if err != nil {
