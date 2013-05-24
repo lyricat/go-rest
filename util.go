@@ -10,6 +10,7 @@ import (
 // Test a service with special vars and request. If tested handler doesn't access vars or request, set them to nil.
 func SetTest(i interface{}, vars map[string]string, r *http.Request) (*httptest.ResponseRecorder, error) {
 	instance := reflect.ValueOf(i)
+	instance = reflect.Indirect(instance)
 	var service reflect.Value
 	index := 0
 	for i, n := 0, instance.NumField(); i < n; i++ {
@@ -26,9 +27,12 @@ func SetTest(i interface{}, vars map[string]string, r *http.Request) (*httptest.
 		return nil, err
 	}
 	w := httptest.NewRecorder()
-	ctx, err := newContext(w, r, vars, mime, charset)
-	if err != nil {
-		return nil, err
+	ctx := &context{
+		mime:           mime,
+		charset:        charset,
+		vars:           vars,
+		request:        r,
+		responseWriter: w,
 	}
 	ctxField := service.FieldByName("context")
 	ctxField.Set(reflect.ValueOf(ctx))
