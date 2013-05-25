@@ -99,7 +99,7 @@ func TestProcessorNodeHandle(t *testing.T) {
 	}
 	for i, test := range tests {
 		node := processorNode{
-			f:            instance.Type().Method(test.findex).Func,
+			findex:       instance.Type().Method(test.findex).Index,
 			requestType:  test.requestType,
 			responseType: test.responseType,
 		}
@@ -154,7 +154,7 @@ func TestStreamingNodeHandle(t *testing.T) {
 	}
 	for i, test := range tests {
 		sn := &streamingNode{
-			f:           instance.Type().Method(test.f.Index).Func,
+			findex:      instance.Type().Method(test.f.Index).Index,
 			end:         test.end,
 			requestType: test.requestType,
 		}

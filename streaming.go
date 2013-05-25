@@ -83,8 +83,8 @@ func (p *Streaming) init(formatter pathFormatter, instance reflect.Value, name s
 
 	ft := f.Type
 	ret := &streamingNode{
-		f:     f.Func,
-		name_: name,
+		findex: f.Index,
+		name_:  name,
 	}
 	if ft.NumIn() > 3 || ft.NumIn() < 2 {
 		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", ft.Name())

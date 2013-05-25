@@ -85,7 +85,7 @@ func (w *processorWriter) Write(p []byte) (int, error) {
 
 type processorNode struct {
 	name_        string
-	f            reflect.Value
+	findex       int
 	requestType  reflect.Type
 	responseType reflect.Type
 }
@@ -107,7 +107,8 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		}
 	}
 
-	args := []reflect.Value{instance}
+	// args := []reflect.Value{instance}
+	var args []reflect.Value
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
@@ -118,7 +119,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		args = append(args, request.Elem())
 	}
 
-	ret := n.f.Call(args)
+	ret := instance.Method(n.findex).Call(args)
 
 	if ctx.isError || len(ret) == 0 {
 		return
@@ -161,7 +162,7 @@ func (w *streamingWriter) WriteHeader(code int) {
 
 type streamingNode struct {
 	name_       string
-	f           reflect.Value
+	findex      int
 	end         string
 	requestType reflect.Type
 }
@@ -205,7 +206,7 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 
 	stream := newStream(ctx, conn, n.end)
 
-	args := []reflect.Value{instance, reflect.ValueOf(stream).Elem()}
+	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
@@ -218,5 +219,5 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 
 	ctx.responseWriter.Header().Set("Connection", "keep-alive")
-	n.f.Call(args)
+	instance.Method(n.findex).Call(args)
 }
