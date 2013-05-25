@@ -107,7 +107,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		}
 	}
 
-	var args []reflect.Value
+	args := []reflect.Value{instance}
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
@@ -205,7 +205,7 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 
 	stream := newStream(ctx, conn, n.end)
 
-	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
+	args := []reflect.Value{instance, reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())

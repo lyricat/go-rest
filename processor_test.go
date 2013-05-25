@@ -115,7 +115,7 @@ func TestProcessorInit(t *testing.T) {
 			t.Errorf("not *processorNode")
 			continue
 		}
-		equal(t, pn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
+		equal(t, fmt.Sprintf("%v", pn.f), fmt.Sprintf("%v", instance.Type().Method(test.funcIndex).Func), fmt.Sprintf("test %d", i))
 		equal(t, fmt.Sprintf("%v", pn.requestType), test.request, fmt.Sprintf("test %d", i))
 		equal(t, fmt.Sprintf("%v", pn.responseType), test.response, fmt.Sprintf("test %d", i))
 	}

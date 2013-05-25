@@ -100,7 +100,7 @@ func TestStreamingInit(t *testing.T) {
 			t.Errorf("not *streamingNode")
 			continue
 		}
-		equal(t, sn.f, instance.Method(test.funcIndex), fmt.Sprintf("test %d", i))
+		equal(t, fmt.Sprintf("%v", sn.f), fmt.Sprintf("%v", instance.Type().Method(test.funcIndex).Func), fmt.Sprintf("test %d", i))
 		equal(t, fmt.Sprintf("%v", sn.requestType), test.request, fmt.Sprintf("test %d", i))
 		equal(t, sn.end, test.end, fmt.Sprintf("test %d", i))
 	}

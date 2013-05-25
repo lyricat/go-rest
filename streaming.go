@@ -76,24 +76,24 @@ func (p *Streaming) init(formatter pathFormatter, instance reflect.Value, name s
 	if fname == "" {
 		fname = "Handle" + name
 	}
-	f := instance.MethodByName(fname)
-	if !f.IsValid() {
+	f, ok := instance.Type().MethodByName(fname)
+	if !ok {
 		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
 	}
 
-	ft := f.Type()
+	ft := f.Type
 	ret := &streamingNode{
-		f:     f,
+		f:     f.Func,
 		name_: name,
 	}
-	if ft.NumIn() > 2 || ft.NumIn() < 1 {
+	if ft.NumIn() > 3 || ft.NumIn() < 2 {
 		return nil, nil, fmt.Errorf("streaming(%s) input parameters should be 1 or 2.", ft.Name())
 	}
-	if ft.In(0).String() != "rest.Stream" {
+	if ft.In(1).String() != "rest.Stream" {
 		return nil, nil, fmt.Errorf("streaming(%s) first input parameters should be rest.Stream", ft.Name())
 	}
-	if ft.NumIn() == 2 {
-		ret.requestType = ft.In(1)
+	if ft.NumIn() == 3 {
+		ret.requestType = ft.In(2)
 	}
 
 	if ft.NumOut() > 0 {

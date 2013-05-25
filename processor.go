@@ -35,21 +35,21 @@ func (p *Processor) init(formatter pathFormatter, instance reflect.Value, name s
 	if fname == "" {
 		fname = "Handle" + name
 	}
-	f := instance.MethodByName(fname)
-	if !f.IsValid() {
+	f, ok := instance.Type().MethodByName(fname)
+	if !ok {
 		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
 	}
 
-	ft := f.Type()
+	ft := f.Type
 	ret := &processorNode{
-		f:     f,
+		f:     f.Func,
 		name_: name,
 	}
-	if ft.NumIn() > 1 {
-		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 2.", ft.Name())
+	if ft.NumIn() > 2 {
+		return nil, nil, fmt.Errorf("processer(%s) input parameters should be no more than 1.", ft.Name())
 	}
-	if ft.NumIn() == 1 {
-		ret.requestType = ft.In(0)
+	if ft.NumIn() == 2 {
+		ret.requestType = ft.In(1)
 	}
 
 	if ft.NumOut() > 1 {
