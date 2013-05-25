@@ -48,7 +48,7 @@ Document
 
 http://godoc.org/github.com/googollee/go-rest
 
-Summary
+A over all example
 -------
 
 Define a service struct like this:
@@ -90,14 +90,10 @@ Define a service struct like this:
 	// Response:
 	//   {"to":"rest","post":"rest is powerful"}
 	func (r RestExample) HandleHello() HelloArg {
-		if r.Vars() == nil {
-			r.Error(http.StatusNotFound, fmt.Errorf("%+v", r.Vars()))
-			return HelloArg{}
-		}
 		to := r.Vars()["to"]
 		post, ok := r.post[to]
 		if !ok {
-			r.Error(http.StatusNotFound, fmt.Errorf("can't find hello to %s", to))
+			r.Error(http.StatusNotFound, r.GetError(2, fmt.Sprintf("can't find hello to %s", to)))
 			return HelloArg{}
 		}
 		return HelloArg{
@@ -114,7 +110,7 @@ Define a service struct like this:
 	func (r RestExample) HandleWatch(s rest.Stream) {
 		to := r.Vars()["to"]
 		if to == "" {
-			r.Error(http.StatusBadRequest, fmt.Errorf("need to"))
+			r.Error(http.StatusBadRequest, r.GetError(3, "need to"))
 			return
 		}
 		r.WriteHeader(http.StatusOK)
@@ -149,15 +145,16 @@ Get the http.Handler from RestExample:
 	})
 	http.ListenAndServe("127.0.0.1:8080", handler)
 
-Or use gorilla mux and work with other http handlers:
+Or use http.ServerMux and work with other http handlers:
 
-	// import "github.com/gorilla/mux"
-	router := mux.NewRouter()
+	mux := http.NewServerMux()
 	handler, err := rest.New(&RestExample{
 		post:  make(map[string]string),
 		watch: make(map[string]chan string),
 	})
-	router.PathPrefix(handler.Prefix()).Handle(handler)
+	mux.Handle(handler.Prefix(), handler)
+	// add other handlers
+	http.ListenAndServe("127.0.0.1:8080", mux)
 
 Performance
 -----------
