@@ -180,14 +180,16 @@ func TestExample(t *testing.T) {
 
 		equal(t, resp.StatusCode, http.StatusOK)
 
-		time.Sleep(time.Second / 2)
 		expect := "\"rest is powerful\"\n\r"
-		get := make([]byte, len(expect))
-		n, err := resp.Body.Read(get)
-		if err != nil {
-			t.Fatal(err)
+		var get []byte
+		for len(get) < len(expect) {
+			read := make([]byte, len(expect))
+			n, err := resp.Body.Read(read)
+			if err != nil {
+				t.Fatal(err)
+			}
+			get = append(get, read[:n]...)
 		}
-		get = get[:n]
 		equal(t, string(get), expect)
 
 		c <- 1

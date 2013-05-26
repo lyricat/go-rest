@@ -94,13 +94,28 @@ func TestExample(t *testing.T) {
 		Post: "rest is powerful",
 	})
 
-	rest.SetTest(instance, map[string]string{"to": "rest"}, nil)
+	resp, err := rest.SetTest(instance, map[string]string{"to": "rest"}, nil)
+	if err != nil {
+		panic(err)
+	}
 	arg := instance.HandleHello()
+	if resp.Code != http.StatusOK {
+		t.Error("should return ok")
+	}
 	if arg.To != "rest" {
-		t.Errorf("arg.To should be rest")
+		t.Error("arg.To should be rest")
 	}
 	if arg.Post != "rest is powerful" {
-		t.Errorf("arg.Post should be 'rest is powerful'")
+		t.Error("arg.Post should be 'rest is powerful'")
+	}
+
+	resp, err = rest.SetTest(instance, map[string]string{"to": "123"}, nil)
+	if err != nil {
+		panic(err)
+	}
+	arg = instance.HandleHello()
+	if resp.Code != http.StatusNotFound {
+		t.Error("should return not found")
 	}
 }
 
