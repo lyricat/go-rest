@@ -58,7 +58,7 @@ func (f pathFormatter) Path(params ...string) string {
 }
 
 type node interface {
-	init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error)
+	init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error)
 }
 
 type handler interface {

@@ -86,7 +86,7 @@ func TestStreamingInit(t *testing.T) {
 	}
 	for i, test := range tests {
 		streaming := new(Streaming)
-		handlers, paths, err := streaming.init(test.path, instance, test.name, test.tag)
+		handlers, paths, err := streaming.init(test.path, instanceType, test.name, test.tag)
 		equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
 		if !test.ok || err != nil {
 			continue

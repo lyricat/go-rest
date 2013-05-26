@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/googollee/go-rest"
 	"net/http"
+	"testing"
 	"time"
 )
 
@@ -82,6 +83,29 @@ func (r RestExample) HandleWatch(s rest.Stream) {
 	}
 }
 
+// in unit test file
+func TestExample(t *testing.T) {
+	instance := &RestExample{
+		post:  make(map[string]string),
+		watch: make(map[string]chan string),
+	}
+
+	instance.HandleCreateHello(HelloArg{
+		To:   "rest",
+		Post: "rest is powerful",
+	})
+
+	rest.SetTest(instance, map[string]string{"to": "rest"}, nil)
+	arg := instance.HandleHello()
+	if arg.To != "rest" {
+		t.Errorf("arg.To should be rest")
+	}
+	if arg.Post != "rest is powerful" {
+		t.Errorf("arg.Post should be 'rest is powerful'")
+	}
+}
+
+// in main file
 func Example() {
 	instance := &RestExample{
 		post:  make(map[string]string),

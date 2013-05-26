@@ -171,7 +171,7 @@ func New(s interface{}) (*Rest, error) {
 		path := field.Tag.Get("path")
 
 		formatter := pathToFormatter(prefix, path)
-		handlers, paths, err := pNode.init(formatter, instance, field.Name, field.Tag)
+		handlers, paths, err := pNode.init(formatter, t, field.Name, field.Tag)
 		if err != nil {
 			return nil, err
 		}

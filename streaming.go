@@ -71,12 +71,12 @@ type Streaming struct {
 	pathFormatter
 }
 
-func (p *Streaming) init(formatter pathFormatter, instance reflect.Value, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
+func (p *Streaming) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
 	fname := tag.Get("func")
 	if fname == "" {
 		fname = "Handle" + name
 	}
-	f, ok := instance.Type().MethodByName(fname)
+	f, ok := instance.MethodByName(fname)
 	if !ok {
 		return nil, nil, fmt.Errorf("can't find handler: %s", fname)
 	}
