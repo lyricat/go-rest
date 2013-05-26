@@ -100,7 +100,6 @@ func TestExample(t *testing.T) {
 		panic(err)
 	}
 	arg := instance.HandleHello()
-	fmt.Println(resp.Code)
 	if resp.Code != http.StatusOK {
 		t.Error("should return ok")
 	}

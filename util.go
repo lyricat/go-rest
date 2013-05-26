@@ -27,6 +27,7 @@ func SetTest(i interface{}, vars map[string]string, r *http.Request) (*httptest.
 		return nil, err
 	}
 	w := httptest.NewRecorder()
+	w.Code = http.StatusOK
 	if r == nil {
 		r = new(http.Request)
 	}
