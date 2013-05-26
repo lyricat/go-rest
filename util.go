@@ -27,13 +27,10 @@ func SetTest(i interface{}, vars map[string]string, r *http.Request) (*httptest.
 		return nil, err
 	}
 	w := httptest.NewRecorder()
-	ctx := &context{
-		mime:           mime,
-		charset:        charset,
-		vars:           vars,
-		request:        r,
-		responseWriter: w,
+	if r == nil {
+		r = new(http.Request)
 	}
+	ctx, err := newContext(w, r, vars, mime, charset)
 	ctxField := service.FieldByName("context")
 	ctxField.Set(reflect.ValueOf(ctx))
 	return w, nil

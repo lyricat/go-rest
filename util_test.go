@@ -36,7 +36,11 @@ func TestSetTest(t *testing.T) {
 			t.Fatal(err)
 		}
 		equal(t, util.Vars(), test.vars, "test %d", i)
-		equal(t, util.Request(), test.r, "test %d", i)
+		if test.r == nil {
+			equal(t, util.Request(), new(http.Request), "test %d", i)
+		} else {
+			equal(t, util.Request(), test.r, "test %d", i)
+		}
 		equal(t, util.responseWriter, resp, "test %d", i)
 	}
 }
