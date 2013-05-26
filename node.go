@@ -113,7 +113,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
 		if err != nil {
-			ctx.Error(http.StatusBadRequest, ctx.GetError(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
+			ctx.Error(http.StatusBadRequest, ctx.DetailError(-1, "marshal request to %s failed: %s", n.requestType.Name(), err))
 			return
 		}
 		args = append(args, request.Elem())
@@ -127,7 +127,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 
 	err := ctx.marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, fmt.Sprintf("marshal response to %s failed: %s", ret[0].Type().Name(), err)))
+		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "marshal response to %s failed: %s", ret[0].Type().Name(), err))
 		return
 	}
 }
@@ -174,12 +174,12 @@ func (n *streamingNode) name() string {
 func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	hj, ok := ctx.responseWriter.(http.Hijacker)
 	if !ok {
-		ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, "webserver doesn't support hijacking"))
+		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "webserver doesn't support hijacking"))
 		return
 	}
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError, ctx.GetError(-1, err.Error()))
+		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "%s", err))
 		return
 	}
 	defer conn.Close()
@@ -211,7 +211,7 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 		request := reflect.New(n.requestType)
 		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
 		if err != nil {
-			ctx.Error(http.StatusBadRequest, ctx.GetError(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
+			ctx.Error(http.StatusBadRequest, ctx.DetailError(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
 			return
 		}
 		request = reflect.Indirect(request)

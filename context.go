@@ -95,8 +95,8 @@ func (c *context) Header() http.Header {
 //     }
 //
 // And it will marshal to special mime-type when calling with Service.Error.
-func (c *context) GetError(code int, message string) error {
-	return c.marshaller.Error(code, message)
+func (c *context) DetailError(code int, format string, args ...interface{}) error {
+	return c.marshaller.Error(code, fmt.Sprintf(format, args...))
 }
 
 // Error replies to the request with the specified error message and HTTP code.
