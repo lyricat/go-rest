@@ -1,7 +1,6 @@
 package rest_test
 
 import (
-	"fmt"
 	"github.com/googollee/go-rest"
 	"net/http"
 	"testing"
