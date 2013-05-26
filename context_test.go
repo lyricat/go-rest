@@ -96,6 +96,37 @@ func TestParseHeaderField(t *testing.T) {
 	}
 }
 
+func TestHasExportField(t *testing.T) {
+	type Test struct {
+		i  interface{}
+		ok bool
+	}
+	type NoExport struct {
+		i int
+	}
+	type NoField struct{}
+	type HasExport struct {
+		I int
+	}
+	type ComposeExport struct {
+		HasExport
+	}
+	var tests = []Test{
+		{&NoExport{}, false},
+		{&NoField{}, false},
+		{&HasExport{}, true},
+		{&ComposeExport{}, true},
+		{NoExport{}, false},
+		{NoField{}, false},
+		{HasExport{}, true},
+		{ComposeExport{}, true},
+	}
+	for i, test := range tests {
+		ok := hasExportField(test.i)
+		equal(t, ok, test.ok, "test %d", i)
+	}
+}
+
 func equalMap(a, b map[string]string) bool {
 	if len(a) != len(b) {
 		return false

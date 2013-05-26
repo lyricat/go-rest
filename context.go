@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 )
 
@@ -100,9 +101,14 @@ func (c *context) DetailError(code int, format string, args ...interface{}) erro
 }
 
 // Error replies to the request with the specified error message and HTTP code.
+// If err has export field, it will be marshalled to response.Body directly, otherwise will use err.Error().
 func (c *context) Error(code int, err error) {
 	c.WriteHeader(code)
-	c.marshaller.Marshal(c.responseWriter, err)
+	if hasExportField(err) {
+		c.marshaller.Marshal(c.responseWriter, err)
+	} else {
+		c.marshaller.Marshal(c.responseWriter, err.Error())
+	}
 	c.isError = true
 }
 
@@ -110,6 +116,19 @@ func (c *context) Error(code int, err error) {
 func (c *context) RedirectTo(path string) {
 	c.Header().Set("Location", path)
 	c.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func hasExportField(i interface{}) bool {
+	v := reflect.ValueOf(i)
+	v = reflect.Indirect(v)
+	t := v.Type()
+	for i, n := 0, t.NumField(); i < n; i++ {
+		name := t.Field(i).Name
+		if c := name[0]; 'A' <= c && c <= 'Z' {
+			return true
+		}
+	}
+	return false
 }
 
 func parseHeaderField(r *http.Request, field string) (string, map[string]string) {
