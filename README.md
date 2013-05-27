@@ -145,17 +145,17 @@ Get the http.Handler from RestExample:
 	})
 	http.ListenAndServe("127.0.0.1:8080", handler)
 
-Or use http.ServerMux and work with other http handlers:
+Or use gorilla mux and work with other http handlers:
 
-	mux := http.NewServerMux()
+	// import "github.com/gorilla/mux"
+	router := mux.NewRouter()
 	handler, err := rest.New(&RestExample{
-		post:  make(map[string]string),
-		watch: make(map[string]chan string),
+	    post:  make(map[string]string),
+	    watch: make(map[string]chan string),
 	})
-	mux.Handle(handler.Prefix(), handler)
-	// add other handlers
-	http.ListenAndServe("127.0.0.1:8080", mux)
-
+	router.PathPrefix(handler.Prefix()).Handle(handler)
+	http.ListenAndServe("127.0.0.1:8080", router)
+	
 Performance
 -----------
 

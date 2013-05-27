@@ -118,7 +118,7 @@ func TestError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new rest service failed: %s", err)
 	}
-	equal(t, r.Prefix(), "/prefix/")
+	equal(t, r.Prefix(), "/prefix")
 	for i, test := range tests {
 		buf := bytes.NewBufferString(test.request)
 		req, err := http.NewRequest(test.method, test.url, buf)
@@ -144,7 +144,7 @@ func TestExample(t *testing.T) {
 		t.Fatalf("create rest failed: %s", err)
 	}
 
-	equal(t, rest.Prefix(), "/prefix/")
+	equal(t, rest.Prefix(), "/prefix")
 
 	server := httptest.NewServer(rest)
 	defer server.Close()
