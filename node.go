@@ -111,7 +111,12 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 	var args []reflect.Value
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
-		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
+		marshaller, ok := getMarshaller(ctx.requestMime)
+		if !ok {
+			http.Error(ctx.responseWriter, "can't find marshaller for"+ctx.mime, http.StatusBadRequest)
+			return
+		}
+		err := marshaller.Unmarshal(ctx.request.Body, request.Interface())
 		if err != nil {
 			ctx.Error(http.StatusBadRequest, ctx.DetailError(-1, "marshal request to %s failed: %s", n.requestType.Name(), err))
 			return
@@ -125,7 +130,12 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		return
 	}
 
-	err := ctx.marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
+	marshaller, ok := getMarshaller(ctx.mime)
+	if !ok {
+		http.Error(ctx.responseWriter, "can't find marshaller for"+ctx.mime, http.StatusBadRequest)
+		return
+	}
+	err := marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "marshal response to %s failed: %s", ret[0].Type().Name(), err))
 		return
@@ -204,12 +214,20 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 		writedHeader: false,
 	}
 
-	stream := newStream(ctx, conn, n.end)
+	stream, err := newStream(ctx, conn, n.end)
+	if err != nil {
+		ctx.Error(http.StatusBadRequest, ctx.DetailError(-1, "%s", err))
+	}
 
 	args := []reflect.Value{reflect.ValueOf(stream).Elem()}
 	if n.requestType != nil {
 		request := reflect.New(n.requestType)
-		err := ctx.marshaller.Unmarshal(ctx.request.Body, request.Interface())
+		marshaller, ok := getMarshaller(ctx.requestMime)
+		if !ok {
+			http.Error(ctx.responseWriter, "can't find marshaller for"+ctx.mime, http.StatusBadRequest)
+			return
+		}
+		err := marshaller.Unmarshal(ctx.request.Body, request.Interface())
 		if err != nil {
 			ctx.Error(http.StatusBadRequest, ctx.DetailError(-1, fmt.Sprintf("marshal request to %s failed: %s", n.requestType.Name(), err)))
 			return

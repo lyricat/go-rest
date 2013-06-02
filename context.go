@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -12,36 +13,46 @@ type headerWriter interface {
 }
 
 type context struct {
+	name           string
+	request        *http.Request
+	vars           map[string]string
+	requestMime    string
+	requestCharset string
+	responseWriter http.ResponseWriter
 	mime           string
 	charset        string
-	marshaller     Marshaller
 	compresser     Compresser
-	vars           map[string]string
-	request        *http.Request
-	responseWriter http.ResponseWriter
 	isError        bool
 }
 
 func newContext(w http.ResponseWriter, r *http.Request, vars map[string]string, defaultMime, defaultCharset string) (*context, error) {
+	requestMime, v := parseHeaderField(r, "Content-Type")
+	if requestMime == "" {
+		requestMime = defaultMime
+	}
+	if _, ok := getMarshaller(requestMime); !ok {
+		requestMime = defaultMime
+	}
+	if _, ok := getMarshaller(requestMime); !ok {
+		return nil, errors.New("can't find marshaller for " + requestMime)
+	}
+	requestCharset := v["charset"]
+	if requestCharset == "" {
+		requestCharset = defaultCharset
+	}
 	mime := r.Header.Get("Accept")
-	charset := r.Header.Get("Accept-Charset")
 	if mime == "" {
+		mime = requestMime
+	}
+	if _, ok := getMarshaller(mime); !ok {
 		mime = defaultMime
 	}
+	if _, ok := getMarshaller(mime); !ok {
+		return nil, errors.New("can't find marshaller for " + mime)
+	}
+	charset := r.Header.Get("Accept-Charset")
 	if charset == "" {
-		charset = defaultCharset
-	}
-	if charset == "" {
-		charset = "utf-8"
-	}
-
-	marshaller, ok := getMarshaller(mime)
-	if !ok {
-		mime = defaultMime
-		marshaller, ok = getMarshaller(mime)
-	}
-	if !ok {
-		return nil, fmt.Errorf("can't find %s marshaller", mime)
+		charset = requestCharset
 	}
 
 	encoding := r.Header.Get("Accept-Encoding")
@@ -57,12 +68,13 @@ func newContext(w http.ResponseWriter, r *http.Request, vars map[string]string, 
 	}
 
 	return &context{
+		request:        r,
+		vars:           vars,
+		requestMime:    requestMime,
+		requestCharset: requestCharset,
 		mime:           mime,
 		charset:        charset,
-		marshaller:     marshaller,
 		compresser:     compresser,
-		vars:           vars,
-		request:        r,
 		responseWriter: w,
 		isError:        false,
 	}, nil
@@ -97,17 +109,27 @@ func (c *context) Header() http.Header {
 //
 // And it will marshal to special mime-type when calling with Service.Error.
 func (c *context) DetailError(code int, format string, args ...interface{}) error {
-	return c.marshaller.Error(code, fmt.Sprintf(format, args...))
+	marshaller, ok := getMarshaller(c.mime)
+	if !ok {
+		http.Error(c.responseWriter, "can't find marshaller for"+c.mime, http.StatusBadRequest)
+		return errors.New("can't find marshaller for" + c.mime)
+	}
+	return marshaller.Error(code, fmt.Sprintf(format, args...))
 }
 
 // Error replies to the request with the specified error message and HTTP code.
 // If err has export field, it will be marshalled to response.Body directly, otherwise will use err.Error().
 func (c *context) Error(code int, err error) {
 	c.WriteHeader(code)
+	marshaller, ok := getMarshaller(c.mime)
+	if !ok {
+		http.Error(c.responseWriter, "can't find marshaller for"+c.mime, http.StatusBadRequest)
+		return
+	}
 	if hasExportField(err) {
-		c.marshaller.Marshal(c.responseWriter, err)
+		marshaller.Marshal(c.responseWriter, err)
 	} else {
-		c.marshaller.Marshal(c.responseWriter, err.Error())
+		marshaller.Marshal(c.responseWriter, err.Error())
 	}
 	c.isError = true
 }

@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -11,22 +12,28 @@ import (
 Stream  wrap the connection when using streaming.
 */
 type Stream struct {
-	ctx  *context
-	conn net.Conn
-	end  string
+	ctx        *context
+	conn       net.Conn
+	end        string
+	marshaller Marshaller
 }
 
-func newStream(ctx *context, conn net.Conn, end string) *Stream {
-	return &Stream{
-		ctx:  ctx,
-		conn: conn,
-		end:  end,
+func newStream(ctx *context, conn net.Conn, end string) (*Stream, error) {
+	marshaller, ok := getMarshaller(ctx.mime)
+	if !ok {
+		return nil, errors.New("can't find marshaller for" + ctx.mime)
 	}
+	return &Stream{
+		ctx:        ctx,
+		conn:       conn,
+		end:        end,
+		marshaller: marshaller,
+	}, nil
 }
 
 // Write data i as a frame to the connection.
 func (s *Stream) Write(i interface{}) error {
-	err := s.ctx.marshaller.Marshal(s.ctx.responseWriter, i)
+	err := s.marshaller.Marshal(s.ctx.responseWriter, i)
 	if err != nil {
 		return err
 	}
