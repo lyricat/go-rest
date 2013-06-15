@@ -1,10 +1,11 @@
 package rest_test
 
 import (
-	"github.com/googollee/go-rest"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/googollee/go-rest"
 )
 
 type RestExample struct {
@@ -119,7 +120,7 @@ func TestExample(t *testing.T) {
 	}
 }
 
-// in main file
+// The usage of rest.
 func ExampleRest() {
 	instance := &RestExample{
 		post:  make(map[string]string),
