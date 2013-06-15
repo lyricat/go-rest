@@ -120,7 +120,7 @@ func TestExample(t *testing.T) {
 }
 
 // in main file
-func Example() {
+func ExampleRest() {
 	instance := &RestExample{
 		post:  make(map[string]string),
 		watch: make(map[string]chan string),
