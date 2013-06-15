@@ -135,7 +135,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 		http.Error(ctx.responseWriter, "can't find marshaller for"+ctx.mime, http.StatusBadRequest)
 		return
 	}
-	err := marshaller.Marshal(ctx.responseWriter, ret[0].Interface())
+	err := marshaller.Marshal(ctx.responseWriter, ctx.name, ret[0].Interface())
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "marshal response to %s failed: %s", ret[0].Type().Name(), err))
 		return

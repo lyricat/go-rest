@@ -89,19 +89,19 @@ func TestNewRest(t *testing.T) {
 	}
 	for i, test := range tests {
 		r, err := New(test.instance)
-		equal(t, err == nil, test.ok, fmt.Sprintf("test %d error: %s", i, err))
+		equal(t, err == nil, test.ok, "test %d error: %s", i, err)
 		if err != nil || !test.ok {
 			continue
 		}
-		equal(t, r.Prefix(), test.prefix, fmt.Sprintf("test %d"), i)
-		equal(t, r.defaultMime, test.mime, fmt.Sprintf("test %d"), i)
-		equal(t, r.defaultCharset, test.charset, fmt.Sprintf("test %d"), i)
+		equal(t, r.Prefix(), test.prefix, "test %d", i)
+		equal(t, r.defaultMime, test.mime, "test %d", i)
+		equal(t, r.defaultCharset, test.charset, "test %d", i)
 		handler, ok := r.router.Routes[0].Dest.(*FakeHandler)
 		if !ok {
 			fmt.Errorf("handler not *FakeHandler")
 			continue
 		}
-		equal(t, handler.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
+		equal(t, handler.node.formatter, test.formatter, "test %d", i)
 	}
 }
 
@@ -120,6 +120,7 @@ func TestRestServeHTTP(t *testing.T) {
 		url    string
 
 		code      int
+		name      string
 		node      *FakeNode
 		formatter pathFormatter
 		vars      map[string]string
@@ -130,12 +131,12 @@ func TestRestServeHTTP(t *testing.T) {
 		t.Fatalf("new rest service failed: %s", err)
 	}
 	var tests = []Test{
-		{"GET", "http://domain/prefix/node/123", http.StatusOK, &instance.NodeId, "/prefix/node/:id", map[string]string{"id": "123"}},
-		{"GET", "http://domain/prefix/node/", http.StatusNotFound, nil, "", nil},
+		{"GET", "http://domain/prefix/node/123", http.StatusOK, "NodeId", &instance.NodeId, "/prefix/node/:id", map[string]string{"id": "123"}},
+		{"GET", "http://domain/prefix/node/", http.StatusNotFound, "", nil, "", nil},
 
-		{"POST", "http://domain/prefix/node", http.StatusOK, &instance.Node, "/prefix/node", nil},
-		{"POST", "http://domain/prefix/no/exist", http.StatusNotFound, nil, "", nil},
-		{"GET", "http://domain/prefix/node", http.StatusNotFound, nil, "", nil},
+		{"POST", "http://domain/prefix/node", http.StatusOK, "Node", &instance.Node, "/prefix/node", nil},
+		{"POST", "http://domain/prefix/no/exist", http.StatusNotFound, "", nil, "", nil},
+		{"GET", "http://domain/prefix/node", http.StatusNotFound, "", nil, "", nil},
 	}
 	for i, test := range tests {
 		buf := bytes.NewBuffer(nil)
@@ -146,14 +147,15 @@ func TestRestServeHTTP(t *testing.T) {
 		w := httptest.NewRecorder()
 		w.Code = http.StatusOK
 		rest.ServeHTTP(w, req)
-		equal(t, w.Code, test.code, fmt.Sprintf("test %d code: %s", i, w.Code))
+		equal(t, w.Code, test.code, "test %d code: %s", i, w.Code)
 		if w.Code != http.StatusOK {
 			continue
 		}
-		equal(t, test.node.formatter, test.formatter, fmt.Sprintf("test %d", i))
-		equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, fmt.Sprintf("test %d", i))
+		equal(t, test.node.formatter, test.formatter, "test %d", i)
+		equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, "test %d", i)
+		equal(t, test.node.lastCtx.name, test.name, "test %d", i)
 
 		service := test.node.lastInstance.Field(0).Interface().(Service)
-		equal(t, equalMap(service.Vars(), test.vars), true, fmt.Sprintf("test %d", i))
+		equal(t, equalMap(service.Vars(), test.vars), true, "test %d", i)
 	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type Marshaller interface {
-	Marshal(w io.Writer, v interface{}) error
+	Marshal(w io.Writer, name string, v interface{}) error
 	Unmarshal(r io.Reader, v interface{}) error
 	Error(code int, message string) error
 }
@@ -33,7 +33,7 @@ func getMarshaller(mime string) (Marshaller, bool) {
 // The marshaller using json.
 type JsonMarshaller struct{}
 
-func (j JsonMarshaller) Marshal(w io.Writer, v interface{}) error {
+func (j JsonMarshaller) Marshal(w io.Writer, name string, v interface{}) error {
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(v)
 }

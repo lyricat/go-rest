@@ -127,9 +127,9 @@ func (c *context) Error(code int, err error) {
 		return
 	}
 	if hasExportField(err) {
-		marshaller.Marshal(c.responseWriter, err)
+		marshaller.Marshal(c.responseWriter, c.name, err)
 	} else {
-		marshaller.Marshal(c.responseWriter, err.Error())
+		marshaller.Marshal(c.responseWriter, c.name, err.Error())
 	}
 	c.isError = true
 }

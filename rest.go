@@ -78,11 +78,11 @@ Define a service struct like this:
 		}
 	}
 
-The field tag of Service configure the parameters of processor, like method, path, or function which 
+The field tag of Service configure the parameters of processor, like method, path, or function which
 will process the request.
 
 The path of processor can capture arguments, which will pass to process function by order in path. Arguments
-type can be string or int, or any type which kind is string or int. 
+type can be string or int, or any type which kind is string or int.
 
 The default name of handler is the name of field prefix with "Handle",
 like Watch handelr correspond HandleWatch method.
@@ -227,6 +227,8 @@ func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	ctx.name = handler.name()
+
 	ctx.responseWriter.Header().Set("Content-Type", fmt.Sprintf("%s; charset=%s", ctx.mime, ctx.charset))
 
 	re.ctxField.Set(reflect.ValueOf(ctx))

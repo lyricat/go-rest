@@ -33,7 +33,7 @@ func newStream(ctx *context, conn net.Conn, end string) (*Stream, error) {
 
 // Write data i as a frame to the connection.
 func (s *Stream) Write(i interface{}) error {
-	err := s.marshaller.Marshal(s.ctx.responseWriter, i)
+	err := s.marshaller.Marshal(s.ctx.responseWriter, s.ctx.name, i)
 	if err != nil {
 		return err
 	}
