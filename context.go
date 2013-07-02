@@ -143,6 +143,9 @@ func (c *context) RedirectTo(path string) {
 func hasExportField(i interface{}) bool {
 	v := reflect.ValueOf(i)
 	v = reflect.Indirect(v)
+	if v.Kind() != reflect.Struct {
+		return false
+	}
 	t := v.Type()
 	for i, n := 0, t.NumField(); i < n; i++ {
 		name := t.Field(i).Name
