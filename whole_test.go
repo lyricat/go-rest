@@ -80,7 +80,7 @@ func (r RestExample) HandleWatch(s Stream) {
 			return
 		case post = <-c:
 		}
-		s.SetDeadline(time.Now().Add(time.Second))
+		s.SetWriteDeadline(time.Now().Add(time.Second))
 		err := s.Write(post)
 		if err != nil {
 			close(c)

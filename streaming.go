@@ -46,9 +46,17 @@ func (s *Stream) Write(i interface{}) error {
 	return nil
 }
 
-// SetDeadline sets the connection's network read & write deadlines.
-func (s *Stream) SetDeadline(t time.Time) error {
-	return s.conn.SetDeadline(t)
+// Check connection is still alive.
+func (s *Stream) Ping() error {
+	s.conn.SetReadDeadline(time.Now().Add(time.Second / 10))
+	b := make([]byte, 1024)
+	_, err := s.conn.Read(b)
+	if connErr, ok := err.(net.Error); ok {
+		if connErr.Timeout() {
+			return nil
+		}
+	}
+	return err
 }
 
 // SetWriteDeadline sets the connection's network write deadlines.
