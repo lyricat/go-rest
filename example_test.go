@@ -73,7 +73,7 @@ func (r RestExample) HandleWatch(s rest.Stream) {
 	r.watch[to] = c
 	for {
 		post := <-c
-		s.SetDeadline(time.Now().Add(time.Second))
+		s.SetWriteDeadline(time.Now().Add(time.Second))
 		err := s.Write(post)
 		if err != nil {
 			close(c)
