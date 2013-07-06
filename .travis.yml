@@ -1,7 +1,7 @@
 language: go
+go:
+  - go1.1.1
 install:
-  - gvm install go1.1.1
-  - gvm use go1.1.1
   - go get github.com/googollee/go-rest
 script: 
   - cd $TRAVIS_BUILD_DIR
