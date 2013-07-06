@@ -40,6 +40,7 @@ func (j JsonMarshaller) Marshal(w io.Writer, name string, v interface{}) error {
 
 func (j JsonMarshaller) Unmarshal(r io.Reader, v interface{}) error {
 	decoder := json.NewDecoder(r)
+	decoder.UseNumber()
 	return decoder.Decode(v)
 }
 
