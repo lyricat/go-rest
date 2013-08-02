@@ -208,6 +208,9 @@ func (r *Rest) Prefix() string {
 // Serve the http request.
 func (re *Rest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if method := r.URL.Query().Get("_method"); method != "" {
+		r.Method = method
+	}
 	r.URL.Path = fmt.Sprintf("/%s/%s", r.Method, path)
 	dest, vars := re.router.FindRouteFromURL(r.URL)
 	if dest == nil {
