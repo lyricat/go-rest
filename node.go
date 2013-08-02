@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -143,7 +142,7 @@ func (n *processorNode) handle(instance reflect.Value, ctx *context) {
 }
 
 type streamingWriter struct {
-	bufrw        *bufio.ReadWriter
+	writer       io.Writer
 	resp         http.ResponseWriter
 	writedHeader bool
 }
@@ -163,10 +162,9 @@ func (w *streamingWriter) WriteHeader(code int) {
 	if w.writedHeader {
 		return
 	}
-	w.bufrw.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
-	w.Header().Write(w.bufrw)
-	w.bufrw.Write([]byte("\r\n"))
-	w.bufrw.Flush()
+	w.writer.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", code, http.StatusText(code))))
+	w.Header().Write(w.writer)
+	w.writer.Write([]byte("\r\n"))
 	w.writedHeader = true
 }
 
@@ -187,7 +185,7 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "webserver doesn't support hijacking"))
 		return
 	}
-	conn, bufrw, err := hj.Hijack()
+	conn, _, err := hj.Hijack()
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, ctx.DetailError(-1, "%s", err))
 		return
@@ -209,7 +207,7 @@ func (n *streamingNode) handle(instance reflect.Value, ctx *context) {
 	}
 
 	ctx.responseWriter = &streamingWriter{
-		bufrw:        bufrw,
+		writer:       conn,
 		resp:         resp,
 		writedHeader: false,
 	}
