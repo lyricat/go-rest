@@ -2,27 +2,23 @@ package rest
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 )
 
+// Marshaller is a mime type marshaller.
 type Marshaller interface {
 	Marshal(w io.Writer, name string, v interface{}) error
 	Unmarshal(r io.Reader, v interface{}) error
-	Error(code int, message string) error
 }
 
-// Register a marshaller with corresponding mime.
+// RegisterMarshaller register a marshaller with corresponding mime.
 func RegisterMarshaller(mime string, marshaller Marshaller) {
 	marshallers[mime] = marshaller
 }
 
-var marshallers map[string]Marshaller
-
-func init() {
-	marshallers = map[string]Marshaller{
-		"application/json": new(JsonMarshaller),
-	}
+var jsonMarshaller = JSONMarshaller{}
+var marshallers = map[string]Marshaller{
+	"application/json": jsonMarshaller,
 }
 
 func getMarshaller(mime string) (Marshaller, bool) {
@@ -30,29 +26,18 @@ func getMarshaller(mime string) (Marshaller, bool) {
 	return ret, ok
 }
 
-// The marshaller using json.
-type JsonMarshaller struct{}
+// JSONMarshaller is Marshaller using json.
+type JSONMarshaller struct{}
 
-func (j JsonMarshaller) Marshal(w io.Writer, name string, v interface{}) error {
+// Marshal will marshal v and write to w, with the handler function name.
+func (j JSONMarshaller) Marshal(w io.Writer, name string, v interface{}) error {
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(v)
 }
 
-func (j JsonMarshaller) Unmarshal(r io.Reader, v interface{}) error {
+// Unmarshal will read r and unmarshal to v.
+func (j JSONMarshaller) Unmarshal(r io.Reader, v interface{}) error {
 	decoder := json.NewDecoder(r)
 	decoder.UseNumber()
 	return decoder.Decode(v)
-}
-
-type jsonError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func (e jsonError) Error() string {
-	return fmt.Sprintf("(%d)%s", e.Code, e.Message)
-}
-
-func (j JsonMarshaller) Error(code int, message string) error {
-	return jsonError{code, message}
 }

@@ -2,21 +2,21 @@ package rest_test
 
 import (
 	"net/http"
-	"testing"
 	"time"
 
 	"github.com/googollee/go-rest"
+	"github.com/googollee/go-rest/pubsub"
 )
 
 type RestExample struct {
-	rest.Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
+	rest.Service `prefix:"/prefix" mime:"application/json"`
 
-	CreateHello rest.Processor `method:"POST" path:"/hello"`
-	GetHello    rest.Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
-	Watch       rest.Streaming `method:"GET" path:"/hello/:to/streaming"`
+	createHello rest.SimpleNode `method:"POST" route:"/hello"`
+	getHello    rest.SimpleNode `method:"GET" route:"/hello/:to"`
+	watch       rest.Streaming  `method:"GET" path:"/hello/:to/streaming"`
 
-	post  map[string]string
-	watch map[string]chan string
+	post   map[string]string
+	pubsub *pubsub.Pubsub
 }
 
 type HelloArg struct {
@@ -28,15 +28,9 @@ type HelloArg struct {
 // > curl "http://127.0.0.1:8080/prefix/hello" -d '{"to":"rest", "post":"rest is powerful"}'
 //
 // No response
-func (r RestExample) HandleCreateHello(arg HelloArg) {
+func (r *RestExample) CreateHello(ctx rest.Context, arg HelloArg) {
 	r.post[arg.To] = arg.Post
-	c, ok := r.watch[arg.To]
-	if ok {
-		select {
-		case c <- arg.Post:
-		default:
-		}
-	}
+	r.pubsub.Publish(arg.To, arg.Post)
 }
 
 // Get example:
@@ -44,92 +38,60 @@ func (r RestExample) HandleCreateHello(arg HelloArg) {
 //
 // Response:
 //   {"to":"rest","post":"rest is powerful"}
-func (r RestExample) HandleHello() HelloArg {
-	to := r.Vars()["to"]
+func (r *RestExample) Hello(ctx rest.Context) {
+	var to string
+	ctx.Bind("to", &to)
 	post, ok := r.post[to]
 	if !ok {
-		r.Error(http.StatusNotFound, r.DetailError(2, "can't find hello to %s", to))
-		return HelloArg{}
+		ctx.Return(http.StatusNotFound, "can't find hello to %s", to)
+		return
 	}
-	return HelloArg{
+	ctx.Render(HelloArg{
 		To:   to,
 		Post: post,
-	}
+	})
 }
 
 // Streaming example:
-// > curl "http://127.0.0.1:8080/prefix/hello/rest/streaming"
+// > curl "http://127.0.0.1:8080/hello/rest/streaming"
 //
 // It create a long-live connection and will receive post content "rest is powerful"
 // when running post example.
-func (r RestExample) HandleWatch(s rest.Stream) {
-	to := r.Vars()["to"]
+func (r *RestExample) Watch(ctx rest.StreamContext) {
+	var to string
+	ctx.Bind("to", &to)
 	if to == "" {
-		r.Error(http.StatusBadRequest, r.DetailError(3, "need to"))
+		ctx.Return(http.StatusBadRequest, "invalid to")
 		return
 	}
-	r.WriteHeader(http.StatusOK)
-	c := make(chan string)
-	r.watch[to] = c
-	for {
-		post := <-c
-		s.SetWriteDeadline(time.Now().Add(time.Second))
-		err := s.Write(post)
-		if err != nil {
-			close(c)
-			delete(r.watch, to)
-			return
+	ctx.Return(http.StatusOK)
+
+	c := make(chan interface{})
+	r.pubsub.Subscribe(to, c)
+	defer r.pubsub.UnsubscribeAll(c)
+
+	for ctx.Ping() == nil {
+		select {
+		case post := <-c:
+			ctx.SetWriteDeadline(time.Now().Add(time.Second))
+			if err := ctx.Render(post); err != nil {
+				return
+			}
+		case <-time.After(time.Second):
 		}
 	}
 }
 
-// in unit test file
-func TestExample(t *testing.T) {
-	instance := &RestExample{
-		post:  make(map[string]string),
-		watch: make(map[string]chan string),
-	}
-
-	instance.HandleCreateHello(HelloArg{
-		To:   "rest",
-		Post: "rest is powerful",
-	})
-
-	resp, err := rest.SetTest(instance, map[string]string{"to": "rest"}, nil)
-	if err != nil {
-		panic(err)
-	}
-	arg := instance.HandleHello()
-	if resp.Code != http.StatusOK {
-		t.Error("should return ok")
-	}
-	if arg.To != "rest" {
-		t.Error("arg.To should be rest")
-	}
-	if arg.Post != "rest is powerful" {
-		t.Error("arg.Post should be 'rest is powerful'")
-	}
-
-	resp, err = rest.SetTest(instance, map[string]string{"to": "123"}, nil)
-	if err != nil {
-		panic(err)
-	}
-	arg = instance.HandleHello()
-	if resp.Code != http.StatusNotFound {
-		t.Error("should return not found")
-	}
-}
-
 // The usage of rest.
-func ExampleRest() {
+func Example() {
 	instance := &RestExample{
-		post:  make(map[string]string),
-		watch: make(map[string]chan string),
+		post:   make(map[string]string),
+		pubsub: pubsub.New(3),
 	}
-	rest, err := rest.New(instance)
-	if err != nil {
+	r := rest.New()
+	if err := r.Add(instance); err != nil {
 		panic(err)
 	}
 
-	http.ListenAndServe("127.0.0.1:8080", rest)
+	http.ListenAndServe("127.0.0.1:8080", r)
 }

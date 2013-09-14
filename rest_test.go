@@ -1,161 +1,128 @@
 package rest
 
 import (
-	"bytes"
 	"fmt"
+	"github.com/googollee/go-assert"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"testing"
 )
 
-type FakeNode struct {
-	formatter    pathFormatter
-	lastInstance reflect.Value
-	lastCtx      *context
+type fakeFailRest struct {
+	Service
+
+	notExist FakeNode
 }
 
-func (n *FakeNode) init(formatter pathFormatter, instance reflect.Type, name string, tag reflect.StructTag) ([]handler, []pathFormatter, error) {
-	n.formatter = formatter
-	return []handler{&FakeHandler{name, n}}, []pathFormatter{formatter}, nil
+type fakeDupRest struct {
+	Service
+
+	handler1 FakeNode
+	handler2 FakeNode
 }
 
-type FakeHandler struct {
-	name_ string
-	node  *FakeNode
+func (r *fakeDupRest) Handler1() {}
+func (r *fakeDupRest) Handler2() {}
+
+type fakeDupServiceRest struct {
+	S1 Service `prefix:"/prefix"`
+	S2 Service `prefix:"/prefix"`
+
+	handler1 FakeNode `route:"/handler1"`
+	handler2 FakeNode `route:"/handerl2"`
 }
 
-func (h *FakeHandler) name() string {
-	return h.name_
+func (r *fakeDupServiceRest) Handler1() {}
+func (r *fakeDupServiceRest) Handler2() {}
+
+type fakeDoubleServiceRest struct {
+	S1 Service `prefix:"/prefix1"`
+	S2 Service `prefix:"/prefix2"`
+
+	handler1 FakeNode `route:"/handler1"`
+	handler2 FakeNode `route:"/handerl2"`
 }
 
-func (h *FakeHandler) handle(instance reflect.Value, ctx *context) {
-	h.node.lastInstance = instance
-	h.node.lastCtx = ctx
-}
+func (r *fakeDoubleServiceRest) Handler1() {}
+func (r *fakeDoubleServiceRest) Handler2() {}
 
-type TestDefault struct {
-	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
-
-	NoMethod FakeNode `path:"/default" method:"METHOD" other:"other"`
-}
-
-type TestFunc struct {
-	NoMethod FakeNode `path:"/func" method:"METHOD" func:"FuncHandler"`
-
-	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
-}
-
-type TestNoMethod struct {
-	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
-
-	NoMethod FakeNode `path:"/no/method"`
-}
-
-type TestNoPath struct {
-	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
-
-	NoMethod FakeNode `method:"METHOD"`
-}
-
-type TestSamePath struct {
-	Service `prefix:"/prefix" mime:"mime" charset:"charset"`
-
-	NoMethod1 FakeNode `method:"METHOD"`
-	NoMethod2 FakeNode `method:"METHOD"`
-}
-
-type TestNoService struct{}
-
-func TestNewRest(t *testing.T) {
-	type Test struct {
-		instance interface{}
-
-		ok           bool
-		serviceIndex int
-		prefix       string
-		mime         string
-		charset      string
-		formatter    pathFormatter
-		tag          reflect.StructTag
-	}
-	var tests = []Test{
-		{new(TestDefault), true, 0, "/prefix", "mime", "charset", "/prefix/default", `path:"/default" method:"METHOD" other:"other"`},
-		{new(TestFunc), true, 1, "/prefix", "mime", "charset", "/prefix/func", `path:"/func" method:"METHOD" func:"FuncHandler"`},
-		{new(TestNoPath), true, 0, "/prefix", "mime", "charset", "/prefix", `method:"METHOD"`},
-		{new(TestNoService), false, 0, "", "", "", "", ""},
-		{new(TestNoMethod), false, 0, "", "", "", "", ""},
-		{new(TestSamePath), false, 0, "", "", "", "", ""},
-	}
-	for i, test := range tests {
-		r, err := New(test.instance)
-		equal(t, err == nil, test.ok, "test %d error: %s", i, err)
-		if err != nil || !test.ok {
-			continue
-		}
-		equal(t, r.Prefix(), test.prefix, "test %d", i)
-		equal(t, r.defaultMime, test.mime, "test %d", i)
-		equal(t, r.defaultCharset, test.charset, "test %d", i)
-		handler, ok := r.router.Routes[0].Dest.(*FakeHandler)
-		if !ok {
-			fmt.Errorf("handler not *FakeHandler")
-			continue
-		}
-		equal(t, handler.node.formatter, test.formatter, "test %d", i)
-	}
-}
-
-type TestPost struct {
+type fakeRest struct {
 	Service `prefix:"/prefix"`
 
-	Node   FakeNode `method:"POST" path:"/node"`
-	NodeId FakeNode `method:"GET" path:"/node/:id" func:"HandleNode"`
+	handler1 FakeNode `route:"/handler1"`
+	handler2 FakeNode `route:"/handler2"`
+
+	LastCall string
 }
 
-func (r TestPost) HandleNode() {}
+func (r *fakeRest) Handler1() { r.LastCall = "handler1" }
+func (r *fakeRest) Handler2() { r.LastCall = "handler2" }
+
+func TestRestAdd(t *testing.T) {
+	type Test struct {
+		serviceTag reflect.StructTag
+		v          interface{}
+		ok         bool
+		length     int
+		paths      string
+	}
+	var tests = []Test{
+		{`prefix:"/prefix"`, 1, false, 0, ""},
+		{`prefix:"/prefix"`, "", false, 0, ""},
+		{`prefix:"/prefix"`, new(int), false, 0, ""},
+		{`prefix:"/prefix"`, new(fakeFailRest), false, 0, ""},
+		{`prefix:"/prefix"`, new(fakeDupRest), false, 0, ""},
+		{`prefix:"/prefix"`, new(fakeDupServiceRest), false, 0, ""},
+		{`prefix:"/prefix"`, new(fakeRest), true, 2, "[/prefix/handler1 /prefix/handler2]"},
+		{`prefix:"/prefix"`, new(fakeDoubleServiceRest), true, 4, "[/prefix1/handerl2 /prefix1/handler1 /prefix2/handerl2 /prefix2/handler1]"},
+	}
+	for i, test := range tests {
+		rest := New()
+		err := rest.Add(test.v)
+		assert.Equal(t, err == nil, test.ok, "test %d error: %s", i, err)
+		if err != nil {
+			continue
+		}
+		assert.Equal(t, len(rest.router.Routes), test.length, "test %d", i)
+		var paths []string
+		for _, path := range rest.router.Routes {
+			paths = append(paths, path.PathExp)
+			_, ok := path.Dest.(*EndPoint)
+			assert.MustEqual(t, ok, true, "test %d")
+
+		}
+		sort.Strings(paths)
+		assert.Equal(t, fmt.Sprintf("%v", paths), test.paths, "test %d", i)
+	}
+}
 
 func TestRestServeHTTP(t *testing.T) {
 	type Test struct {
 		method string
 		url    string
-
-		code      int
-		name      string
-		node      *FakeNode
-		formatter pathFormatter
-		vars      map[string]string
-	}
-	instance := new(TestPost)
-	rest, err := New(instance)
-	if err != nil {
-		t.Fatalf("new rest service failed: %s", err)
+		code   int
+		call   string
 	}
 	var tests = []Test{
-		{"GET", "http://domain/prefix/node/123", http.StatusOK, "NodeId", &instance.NodeId, "/prefix/node/:id", map[string]string{"id": "123"}},
-		{"GET", "http://domain/prefix/node/", http.StatusNotFound, "", nil, "", nil},
-
-		{"POST", "http://domain/prefix/node", http.StatusOK, "Node", &instance.Node, "/prefix/node", nil},
-		{"POST", "http://domain/prefix/no/exist", http.StatusNotFound, "", nil, "", nil},
-		{"GET", "http://domain/prefix/node", http.StatusNotFound, "", nil, "", nil},
+		{"GET", "http://domain/prefix/handler1", http.StatusMethodNotAllowed, ""},
+		{"GET", "http://domain/non/exist", http.StatusNotFound, ""},
+		{"FAKE_METHOD", "http://domain/prefix/handler1", http.StatusOK, "handler1"},
+		{"FAKE_METHOD", "http://domain/prefix/handler2", http.StatusOK, "handler2"},
 	}
+	rest := New()
+	service := new(fakeRest)
+	err := rest.Add(service)
+	assert.MustEqual(t, err, nil, "error: %s", err)
+	var handler http.Handler
+	handler = rest
 	for i, test := range tests {
-		buf := bytes.NewBuffer(nil)
-		req, err := http.NewRequest(test.method, test.url, buf)
-		if err != nil {
-			t.Fatalf("test %d create request failed", i, err)
-		}
-		w := httptest.NewRecorder()
-		w.Code = http.StatusOK
-		rest.ServeHTTP(w, req)
-		equal(t, w.Code, test.code, "test %d code: %s", i, w.Code)
-		if w.Code != http.StatusOK {
-			continue
-		}
-		equal(t, test.node.formatter, test.formatter, "test %d", i)
-		equal(t, equalMap(test.node.lastCtx.vars, test.vars), true, "test %d", i)
-		equal(t, test.node.lastCtx.name, test.name, "test %d", i)
-
-		service := test.node.lastInstance.Field(0).Interface().(Service)
-		equal(t, equalMap(service.Vars(), test.vars), true, "test %d", i)
+		req, err := http.NewRequest(test.method, test.url, nil)
+		assert.MustEqual(t, err, nil, "test %d error: %s", i, err)
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req)
+		assert.Equal(t, resp.Code, test.code, "test %d", i)
+		assert.Equal(t, service.LastCall, test.call, "test %d", i)
 	}
 }

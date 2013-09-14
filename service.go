@@ -1,43 +1,54 @@
 package rest
 
 import (
+	"fmt"
 	"reflect"
 )
 
-/*
-Define the service.
-
-Valid tag:
-
- - prefix: The prefix path of http request. All processor's path will prefix with prefix path.
- - mime: Define the default mime of all processor in this service.
- - compress: If value is "on", it will compress response using "Accept-Encoding" in request header.
-
-To be implement:
- - charset: Define the default charset of all processor in this service.
-*/
-type Service struct {
-	*context
+// RestService is service creator.
+type RestService interface {
+	// MakeHandlers use service tag and service instance v to create a set of endpoint.
+	// Service is a implementation of RestService.
+	MakeHandlers(tag reflect.StructTag, v interface{}) (map[string]*EndPoint, error)
 }
 
-func initService(service reflect.Value, tag reflect.StructTag) (string, string, string, error) {
-	mime := tag.Get("mime")
-	if mime == "" {
-		mime = "application/json"
-	}
+// Service is a rest service creator.
+type Service struct{}
 
-	charset := tag.Get("charset")
-	if charset == "" {
-		charset = "utf-8"
+// MakeHandlers will use v's nodes to create a set of endpoint.
+func (s Service) MakeHandlers(tag reflect.StructTag, v interface{}) (map[string]*EndPoint, error) {
+	sv := reflect.ValueOf(v)
+	st := sv.Type()
+	if st.Kind() == reflect.Ptr {
+		st = st.Elem()
 	}
-
-	prefix := tag.Get("prefix")
-	if prefix == "" {
-		prefix = "/"
+	ret := make(map[string]*EndPoint)
+	for i, n := 0, st.NumField(); i < n; i++ {
+		field := st.Field(i)
+		node, ok := reflect.New(field.Type).Elem().Interface().(Node)
+		if !ok {
+			continue
+		}
+		fname := upperFirst(field.Name)
+		f := sv.MethodByName(fname)
+		if !f.IsValid() {
+			return nil, fmt.Errorf("can't find %s node handler: %s", field.Name, fname)
+		}
+		path, method, handler, err := node.CreateHandler(tag, field.Tag, fname, f)
+		if err != nil {
+			return nil, err
+		}
+		endpoint, ok := ret[path]
+		if !ok {
+			endpoint = NewEndPoint()
+			ret[path] = endpoint
+		}
+		if err := endpoint.Add(method, handler); err != nil {
+			return nil, err
+		}
 	}
-	if prefix[0] != '/' {
-		prefix = "/" + prefix
+	if len(ret) == 0 {
+		return nil, nil
 	}
-
-	return prefix, mime, charset, nil
+	return ret, nil
 }

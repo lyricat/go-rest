@@ -54,14 +54,14 @@ A over all example
 Define a service struct like this:
 
 	type RestExample struct {
-		rest.Service `prefix:"/prefix" mime:"application/json" charset:"utf-8"`
+		rest.Service `prefix:"/prefix" mime:"application/json"`
 
-		CreateHello rest.Processor `method:"POST" path:"/hello"`
-		GetHello    rest.Processor `method:"GET" path:"/hello/:to" func:"HandleHello"`
-		Watch       rest.Streaming `method:"GET" path:"/hello/:to/streaming"`
+		createHello rest.SimpleNode `method:"POST" route:"/hello"`
+		getHello    rest.SimpleNode `method:"GET" route:"/hello/:to"`
+		watch       rest.Streaming  `method:"GET" path:"/hello/:to/streaming"`
 
-		post  map[string]string
-		watch map[string]chan string
+		post   map[string]string
+		pubsub *pubsub.Pubsub
 	}
 
 	type HelloArg struct {
@@ -73,15 +73,9 @@ Define a service struct like this:
 	// > curl "http://127.0.0.1:8080/prefix/hello" -d '{"to":"rest", "post":"rest is powerful"}'
 	//
 	// No response
-	func (r RestExample) HandleCreateHello(arg HelloArg) {
+	func (r *RestExample) CreateHello(ctx rest.Context, arg HelloArg) {
 		r.post[arg.To] = arg.Post
-		c, ok := r.watch[arg.To]
-		if ok {
-			select {
-			case c <- arg.Post:
-			default:
-			}
-		}
+		r.pubsub.Publish(arg.To, arg.Post)
 	}
 
 	// Get example:
@@ -89,103 +83,48 @@ Define a service struct like this:
 	//
 	// Response:
 	//   {"to":"rest","post":"rest is powerful"}
-	func (r RestExample) HandleHello() HelloArg {
-		to := r.Vars()["to"]
+	func (r *RestExample) Hello(ctx rest.Context) {
+		var to string
+		ctx.Bind("to", &to)
 		post, ok := r.post[to]
 		if !ok {
-			r.Error(http.StatusNotFound, r.DetailError(2, "can't find hello to %s", to))
-			return HelloArg{}
+			ctx.Return(http.StatusNotFound, "can't find hello to %s", to)
+			return
 		}
-		return HelloArg{
+		ctx.Render(HelloArg{
 			To:   to,
 			Post: post,
-		}
+		})
 	}
 
 	// Streaming example:
-	// > curl "http://127.0.0.1:8080/prefix/hello/rest/streaming"
+	// > curl "http://127.0.0.1:8080/hello/rest/streaming"
 	//
 	// It create a long-live connection and will receive post content "rest is powerful"
 	// when running post example.
-	func (r RestExample) HandleWatch(s rest.Stream) {
-		to := r.Vars()["to"]
+	func (r *RestExample) Watch(ctx rest.StreamContext) {
+		var to string
+		ctx.Bind("to", &to)
 		if to == "" {
-			r.Error(http.StatusBadRequest, r.DetailError(3, "need to"))
+			ctx.Return(http.StatusBadRequest, "invalid to")
 			return
 		}
-		r.WriteHeader(http.StatusOK)
-		c := make(chan string)
-		r.watch[to] = c
-		for {
-			post := <-c
-			s.SetDeadline(time.Now().Add(time.Second))
-			err := s.Write(post)
-			if err != nil {
-				close(c)
-				delete(r.watch, to)
-				return
+		ctx.Return(http.StatusOK)
+
+		c := make(chan interface{})
+		r.pubsub.Subscribe(to, c)
+		defer r.pubsub.UnsubscribeAll(c)
+
+		for ctx.Ping() == nil {
+			select {
+			case post := <-c:
+				ctx.SetWriteDeadline(time.Now().Add(time.Second))
+				if err := ctx.Render(post); err != nil {
+					return
+				}
+			case <-time.After(time.Second):
 			}
 		}
 	}
 
-The field tag of Service configure the parameters of processor, like method, path, or function which 
-will process the request.
-
-The path of processor can capture arguments, which will pass to process function by order in path. Arguments
-type can be string or int, or any type which kind is string or int. 
-
-The default name of handler is the name of field prefix with "Handle",
-like Watch handelr correspond HandleWatch method.
-
-Get the http.Handler from RestExample:
-
-	handler, err := rest.New(&RestExample{
-		post:  make(map[string]string),
-		watch: make(map[string]chan string),
-	})
-	http.ListenAndServe("127.0.0.1:8080", handler)
-
-Or use gorilla mux and work with other http handlers:
-
-	// import "github.com/gorilla/mux"
-	router := mux.NewRouter()
-	handler, err := rest.New(&RestExample{
-	    post:  make(map[string]string),
-	    watch: make(map[string]chan string),
-	})
-	router.PathPrefix(handler.Prefix()).Handle(handler)
-	http.ListenAndServe("127.0.0.1:8080", router)
-	
-Performance
------------
-
-The performance test is in perf_test.go:
-
- - BenchmarkHttpServeFull: post a string and response a string, through http.ListenAndServe which include connection payload.
-
- - BenchmarkRestServe: post to a fake node, through Rest.ServeHTTP. It's the time of Rest.ServeHTTP, which mainly url routing and preparing context
-
- - BenchmarkRestGet: no post, and response a string, through Rest.ServeHTTP.
-
- - BenchmarkRestPost: post a string and no response, through Rest.ServeHTTP.
-
- - BenchmarkRestFull: post a string and response a string, through Rest.ServeHTTP.
-
- - BenchmarkPlainGet: no post and response a string, without go-rest framework. It use to compare BenchmarkRestGet.
-
- - BenchmarkPlainPost: post a string and no response, without go-rest framework. It use to compare BenchmarkRestPost.
-
- - BenchmarkPlainFull: post a string and response a string, without go-rest framework. It use to compare BenchmarkRestFull.
-
-The result in mu mbp list below:
-
-	$ go test -test.bench=Bench*
-	PASS
-	BenchmarkHttpServeFull	   10000	    259667 ns/op
-	BenchmarkRestServe	  500000	      5495 ns/op
-	BenchmarkRestGet	  200000	      8146 ns/op
-	BenchmarkRestPost	  200000	     10433 ns/op
-	BenchmarkRestFull	  200000	     11691 ns/op
-	BenchmarkPlainGet	  200000	      9684 ns/op
-	BenchmarkPlainPost	  100000	     15700 ns/op
-	BenchmarkPlainFull	  100000	     16662 ns/op
+The field tag of Service configure the parameters of node, like method or path which will process the request.
