@@ -5,4 +5,7 @@ install:
   - go get github.com/googollee/go-rest
 script: 
   - go get github.com/googollee/go-assert
+  - cd pubsub
+  - go test
+  - cd ..
   - go test
