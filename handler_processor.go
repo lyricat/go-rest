@@ -57,6 +57,10 @@ type baseHandler struct {
 	f          reflect.Value
 }
 
+func (h *baseHandler) Name() string {
+	return h.name
+}
+
 func (h *baseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	mime, marshaller := getMarshallerFromRequest(h.mime, h.marshaller, r)
 

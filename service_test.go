@@ -17,6 +17,10 @@ type FakeHandler struct {
 	method     reflect.Value
 }
 
+func (h FakeHandler) Name() string {
+	return h.fname
+}
+
 func (h FakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	h.method.Call(nil)
 }

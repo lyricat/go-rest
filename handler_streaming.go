@@ -79,6 +79,10 @@ type streamHandler struct {
 	f          reflect.Value
 }
 
+func (h *streamHandler) Name() string {
+	return h.name
+}
+
 func (h *streamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	mime, marshaller := getMarshallerFromRequest(h.mime, h.marshaller, r)
 

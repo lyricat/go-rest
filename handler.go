@@ -11,6 +11,7 @@ import (
 type Handler interface {
 	// ServeHTTP serve the http request r with response writer w, vars is parameters grabbed from url path.
 	ServeHTTP(w http.ResponseWriter, r *http.Request, vars map[string]string)
+	Name() string
 }
 
 // Node is rest service node, it corresponde a handler.

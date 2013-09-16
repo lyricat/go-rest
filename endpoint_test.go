@@ -12,6 +12,10 @@ type fakeTestHandler struct {
 	i  int
 }
 
+func (h fakeTestHandler) Name() string {
+	return "fake"
+}
+
 func (h fakeTestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 	if h.pi != nil {
 		*h.pi = h.i
