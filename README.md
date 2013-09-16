@@ -32,11 +32,11 @@ I want to make a clear, flexible framework, which easy to write and test. Here i
 
  - Speed.
 
- 	Golang is fast, framework should be fast too. Performance benchmark is included in perf_test.go. you can compare go-rest and raw handler(with regexp to route) performance.
+ 	Golang is fast, framework should be fast too.
 
  - Easy to do unit test.
 
- 	No need to worry about marshal and unmarshal when do unit test, test handle function with input or output arguments directly. (using rest.SetTest)
+ 	No need to worry about marshal and unmarshal when do unit test, test handle function with input or output arguments directly. (using rest.RecordContext and CheckRoute)
 
 Install
 -------
