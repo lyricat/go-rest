@@ -11,7 +11,7 @@ type RecordContext struct {
 	Context
 
 	Req      *http.Request
-	Recorder http.ResponseWriter
+	Recorder *httptest.ResponseRecorder
 	Renders  []interface{}
 }
 
