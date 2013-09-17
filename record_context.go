@@ -10,9 +10,9 @@ import (
 type RecordContext struct {
 	Context
 
-	request  *http.Request
-	recorder http.ResponseWriter
-	renders  []interface{}
+	Req      *http.Request
+	Recorder http.ResponseWriter
+	Renders  []interface{}
 }
 
 // NewRecordContext create a RecordContext with a http request and url's parameters.
@@ -21,14 +21,14 @@ func NewRecordContext(vars map[string]string, req *http.Request) *RecordContext 
 	return &RecordContext{
 		Context: newBaseContext("test", nil, "utf-8", vars, req, resp),
 
-		request:  req,
-		recorder: resp,
+		Req:      req,
+		Recorder: resp,
 	}
 }
 
 // Render implement Context's Render.
 func (ctx *RecordContext) Render(v interface{}) error {
-	ctx.renders = append(ctx.renders, v)
+	ctx.Renders = append(ctx.Renders, v)
 	return ctx.Context.Render(v)
 }
 
