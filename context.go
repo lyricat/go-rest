@@ -435,10 +435,7 @@ func (ctx *baseContext) getQueryStringArray(id string) ([]string, error) {
 	if ok {
 		ret = []string{v}
 	}
-	if err := ctx.request.ParseForm(); err != nil {
-		return ret, err
-	}
-	ret = append(ret, ctx.request.Form[id]...)
+	ret = append(ret, ctx.request.URL.Query()[id]...)
 	return ret, nil
 }
 
@@ -447,8 +444,5 @@ func (ctx *baseContext) getQueryString(id string) (string, error) {
 	if ok {
 		return ret, nil
 	}
-	if err := ctx.request.ParseForm(); err != nil {
-		return "", err
-	}
-	return ctx.request.Form.Get(id), nil
+	return ctx.request.URL.Query().Get(id), nil
 }

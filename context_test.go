@@ -271,49 +271,6 @@ func TestBaseContextBind(t *testing.T) {
 		{map[string]string{"iarray": "2.1"}, "http://domain/path?str=some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "sarray", &af32, false, "[2.1 1 2]"},
 		{nil, "http://domain/path?str=some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "sarray", &af64, false, "[1 2]"},
 		{map[string]string{"iarray": "2.1"}, "http://domain/path?str=some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "sarray", &af64, false, "[2.1 1 2]"},
-
-		// failed query
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "str", &bl, false, "true"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "str", &str, false, "some_string"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &str, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &i, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &i64, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &i32, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &i16, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &i8, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &b, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &u, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &u64, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &u32, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &u16, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &u8, false, "1"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &f32, false, "1"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "i", &f64, false, "1"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "sarray", &astr, false, "[a b]"},
-		{map[string]string{"sarray": "z"}, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "sarray", &astr, false, "[z a b]"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &astr, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai, false, "[1 2]"},
-		{map[string]string{"iarray": "0"}, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai, false, "[0 1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai64, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai32, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai16, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ai8, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &ab, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &au, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &au64, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &au32, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &au16, false, "[1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &au8, false, "[1 2]"},
-
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &af32, false, "[1 2]"},
-		{map[string]string{"iarray": "2.1"}, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &af32, false, "[2.1 1 2]"},
-		{nil, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &af64, false, "[1 2]"},
-		{map[string]string{"iarray": "2.1"}, "http://domain/path?str=%some_string&i=1&iarray=1&iarray=2&sarray=a&sarray=b", "iarray", &af64, false, "[2.1 1 2]"},
 	}
 	for i, test := range tests {
 		req, err := http.NewRequest("GET", test.url, nil)
