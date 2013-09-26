@@ -47,7 +47,7 @@ func (f *nodeFuncs) MoreArg(ctx Context, i, j int) {}
 func (f *nodeFuncs) NoContext1(i int)              {}
 func (f *nodeFuncs) NoContext2(i, j int)           {}
 
-func TestProcessor(t *testing.T) {
+func TestSimpleNode(t *testing.T) {
 	type Test struct {
 		serviceTag reflect.StructTag
 		fieldTag   reflect.StructTag

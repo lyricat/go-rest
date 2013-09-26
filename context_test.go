@@ -34,6 +34,56 @@ func TestBaseContextNew(t *testing.T) {
 	}
 }
 
+func TestBaseContextIfMatch(t *testing.T) {
+	type Test struct {
+		header http.Header
+		etag   string
+		ok     bool
+	}
+	var tests = []Test{
+		{http.Header{"If-Match": []string{`"737060cd8c284d8af7ad3082f209582d"`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{http.Header{"If-Match": []string{`"737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{http.Header{"If-Match": []string{`*`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{http.Header{"If-Match": []string{`"737060cd8c284d8af7ad3082f209582d", "737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{http.Header{"If-Match": []string{`"737060cd8c284d8af7ad3082f209582c", "737060cd8c284d8af7ad3082f209582d"`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{http.Header{"If-Match": []string{`"737060cd8c284d8af7ad3082f209582c", "737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{nil, "737060cd8c284d8af7ad3082f209582d", false},
+	}
+	for i, test := range tests {
+		req, err := http.NewRequest("GET", "http://domain/path", nil)
+		assert.MustEqual(t, err, nil, "test %d", i)
+		req.Header = test.header
+		resp := httptest.NewRecorder()
+		ctx := newBaseContext("test", nil, "", nil, req, resp)
+		assert.Equal(t, ctx.IfMatch(test.etag), test.ok, "test %d", i)
+	}
+}
+
+func TestBaseContextIfNoneMatch(t *testing.T) {
+	type Test struct {
+		header http.Header
+		etag   string
+		ok     bool
+	}
+	var tests = []Test{
+		{http.Header{"If-None-Match": []string{`"737060cd8c284d8af7ad3082f209582d"`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{http.Header{"If-None-Match": []string{`"737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{http.Header{"If-None-Match": []string{`*`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{http.Header{"If-None-Match": []string{`"737060cd8c284d8af7ad3082f209582d", "737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{http.Header{"If-None-Match": []string{`"737060cd8c284d8af7ad3082f209582c", "737060cd8c284d8af7ad3082f209582d"`}}, "737060cd8c284d8af7ad3082f209582d", false},
+		{http.Header{"If-None-Match": []string{`"737060cd8c284d8af7ad3082f209582c", "737060cd8c284d8af7ad3082f209582e"`}}, "737060cd8c284d8af7ad3082f209582d", true},
+		{nil, "737060cd8c284d8af7ad3082f209582d", true},
+	}
+	for i, test := range tests {
+		req, err := http.NewRequest("GET", "http://domain/path", nil)
+		assert.MustEqual(t, err, nil, "test %d", i)
+		req.Header = test.header
+		resp := httptest.NewRecorder()
+		ctx := newBaseContext("test", nil, "", nil, req, resp)
+		assert.Equal(t, ctx.IfNoneMatch(test.etag), test.ok, "test %d", i)
+	}
+}
+
 func TestBaseContextReturn(t *testing.T) {
 	type Test struct {
 		code       int
@@ -298,4 +348,7 @@ func TestBaseContextBindError(t *testing.T) {
 	err = ctx.BindError()
 	ctx.Bind("str", &s)
 	assert.Equal(t, ctx.BindError(), err)
+	ctx.BindReset()
+	ctx.Bind("str", &s)
+	assert.Equal(t, ctx.BindError(), nil)
 }
